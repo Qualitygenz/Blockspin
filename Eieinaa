@@ -4,7 +4,7 @@ local LocalPlayer = Players.LocalPlayer
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 local Window = WindUI:CreateWindow({
     Title = "Quality x Premium [Blockspin]​",
-    Icon = "zap",
+    Icon = "star",
     Author = "x2Nyx the one you know",
     Folder = "MySuperHub",
 		
@@ -30,11 +30,6 @@ local Window = WindUI:CreateWindow({
     },
 })
 
-Window:Tag({
-    Title = "Free",
-    Icon = "lock-open",
-    Color = Color3.fromHex("#FF0000")
-})
 
 -- Tabs
 local CombatTab = Window:Tab({Title = "Combat", Icon = "sword"})
@@ -55,7 +50,7 @@ local SilentAimEnabled = false
 local EnableWallBang = false
 
 CombatTab:Toggle({
-    Title = "Enable Silent Aim",
+    Title = "Silent Aim",
     Default = false,
     Callback = function(v)
         SilentAimEnabled = v
@@ -63,10 +58,11 @@ CombatTab:Toggle({
 })
 
 CombatTab:Toggle({
-    Title = "Enable Wall Bang",
+    Title = "Super bullet",
+    Desc = "ยิงทะลุ",
     Default = false,
     Callback = function(v)
-        EnableWallBang = v
+        EnableSuperbullet = v
     end
 })
 
@@ -75,13 +71,13 @@ local FOVCircle = Drawing.new("Circle")
 FOVCircle.Radius = 150
 FOVCircle.Thickness = 0.5
 FOVCircle.Filled = false
-FOVCircle.Color = Color3.fromRGB(255,0,0)
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
 FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
 FOVCircle.Visible = false
 local showFov = false
 
 CombatTab:Toggle({
-    Title = "Enable FOV Circle",
+    Title = "Show Fov",
     Default = false,
     Callback = function(state)
         showFov = state
@@ -90,9 +86,9 @@ CombatTab:Toggle({
 })
 
 CombatTab:Slider({
-    Title = "FOV Radius",
+    Title = "FOV Size",
     Step = 1,
-    Value = {Min = 50, Max = 500, Default = FOVCircle.Radius},
+    Value = {Min = 50, Max = 800, Default = FOVCircle.Radius},
     Callback = function(value)
         FOVCircle.Radius = tonumber(value)
     end
@@ -128,7 +124,7 @@ end
 local ignoreDropdown
 ignoreDropdown = CombatTab:Dropdown({
     Flag = "IgnorePlayers",
-    Title = "Ignore Players",
+    Title = "Save Friends",
     Values = GetPlayerDropdownOptions(),
     Value = {},
     Multi = true,
@@ -141,7 +137,7 @@ ignoreDropdown = CombatTab:Dropdown({
 })
 
 CombatTab:Button({
-    Title = "Reset Ignored Players",
+    Title = "Reset Save Friends",
     Callback = function()
         IgnoredPlayers = {}
         if ignoreDropdown then
