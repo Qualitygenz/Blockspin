@@ -156,8 +156,7 @@ local SelectedBodyPart = "Head"
 CombatTab:Dropdown({
     Flag = "TargetBodyPart",
     Title = "aim Part",
-    Values = "HumanoidRootPart",
-    Value = "Head",
+    Values = {"Head", "HumanoidRootPart"}
     Callback = function(option)
         SelectedBodyPart = option
     end
@@ -185,7 +184,7 @@ ignoreDropdown = CombatTab:Dropdown({
     Callback = function(selectedOptions)
         IgnoredPlayers = {}
         for _, v in ipairs(selectedOptions) do
-            table.insert(IgnoredPlayers, v) 
+            table.insert(IgnoredPlayers, v) 
         end
     end
 })
@@ -290,3 +289,6 @@ local function SpawnDebugBullet(startPos, targetPos)
     beam.Parent = workspace
     Debris:AddItem(beam, 0.5)
 end
+
+
+
