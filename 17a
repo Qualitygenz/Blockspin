@@ -100,78 +100,13 @@ local CarTab = Window:Tab({Title = "Car", Icon = "car"})
 local MiscTab = Window:Tab({Title = "Misc", Icon = "hard-drive"})
 local SeverTab = Window:Tab({Title = "server", Icon = "server"})
 
--- Combat 
-local SilentAim = false
-local Superbullet = false
-
--- FOV Circle
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Radius = 150
-FOVCircle.Thickness = 0.5
-FOVCircle.Filled = false
-FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-FOVCircle.Visible = false
-local showFov = false
-
-CombatTab:Toggle({
-    Title = "Show Fov",
-    Default = false,
-    Callback = function(state)
-        showFov = state
-        FOVCircle.Visible = showFov
-    end
-})
-
-CombatTab:Slider({
-    Title = "FOV Size",
-    Step = 1,
-    Value = {Min = 50, Max = 800, Default = FOVCircle.Radius},
-    Callback = function(value)
-        FOVCircle.Radius = tonumber(value)
-    end
-})
-
-CombatTab:Toggle({
-    Title = "Silent Aim",
-    Default = false,
-    Callback = function(v)
-        SilentAim = v
-    end
-})
-
-CombatTab:Toggle({
-    Title = "Super bullet",
-    Default = false,
-    Callback = function(v)
-        EnableSuperbullet = v
-    end
-})
-
--- Body Part
-local CurrentTarget
-local BodyPartOptions = {"Head", "HumanoidRootPart"}
-local SelectedBodyPart = "Head"
-
-CombatTab:Dropdown({
-    Flag = "TargetBodyPart",
-    Title = "aim Part",
-    Values = {"Head", "HumanoidRootPart"}
-    Callback = function(option)
-        SelectedBodyPart = option
-    end
-})
-
---// =========================
---// STATES
---// =========================
 local SilentAim = false
 local SelectedBodyPart = "Head"
 local IgnoredPlayers = {}
 local CurrentTarget = nil
 
 --// =========================
---// FOV
+--// FOV CIRCLE
 --// =========================
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Radius = 150
@@ -218,7 +153,9 @@ CombatTab:Dropdown({
 local function GetPlayerList()
     local t = {}
     for _,p in ipairs(Players:GetPlayers()) do
-        table.insert(t,p.Name)
+        if p ~= LocalPlayer then
+            table.insert(t,p.Name)
+        end
     end
     return t
 end
@@ -240,7 +177,9 @@ CombatTab:Dropdown({
 --// =========================
 local function IsIgnored(plr)
     for _,n in ipairs(IgnoredPlayers) do
-        if plr.Name == n then return true end
+        if plr.Name == n then
+            return true
+        end
     end
     return false
 end
@@ -270,6 +209,7 @@ local function GetClosestTarget()
 
             local part = plr.Character[SelectedBodyPart]
             local pos, onscreen = Camera:WorldToViewportPoint(part.Position)
+
             if onscreen then
                 local dist = (Vector2.new(pos.X,pos.Y) - center).Magnitude
                 if dist <= FOVCircle.Radius and dist < shortest then
@@ -283,7 +223,10 @@ local function GetClosestTarget()
 end
 
 RunService.RenderStepped:Connect(function()
-    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    FOVCircle.Position = Vector2.new(
+        Camera.ViewportSize.X/2,
+        Camera.ViewportSize.Y/2
+    )
     CurrentTarget = SilentAim and GetClosestTarget() or nil
 end)
 
@@ -302,14 +245,16 @@ oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,
 
         local char = CurrentTarget.Character
         local part = char and char:FindFirstChild(SelectedBodyPart)
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 
         if part and hrp then
             local ping = GetPing()
             local aimPos = part.Position + (hrp.Velocity * ping * 1.1)
 
-            args[4] = CFrame.new(LocalPlayer.Character.Head.Position, aimPos)
-			args[4] = CFrame.new(math.huge, math.huge, math.huge)
+            args[4] = CFrame.new(
+                LocalPlayer.Character.Head.Position,
+                aimPos
+            )
 
             args[5] = {
                 [1] = {
@@ -324,4 +269,55 @@ oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,
     end
 
     return oldFire(self, unpack(args))
+end)
+
+--// =========================
+--// RGB TRACER LINE
+--// =========================
+
+local Tracer = Drawing.new("Line")
+Tracer.Visible = false
+Tracer.Thickness = 1.5
+Tracer.Transparency = 1
+
+local hue = 0
+
+RunService.RenderStepped:Connect(function()
+    -- ไล่สี RGB
+    hue = hue + 0.005
+    if hue > 1 then hue = 0 end
+    Tracer.Color = Color3.fromHSV(hue, 1, 1)
+
+    -- จุดศูนย์กลาง FOV
+    local center = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
+
+    -- ตรวจเป้า
+    if SilentAim
+    and CurrentTarget
+    and CurrentTarget.Character
+    and CurrentTarget.Character:FindFirstChild("Head")
+    and FOVCircle.Visible then
+
+        local head = CurrentTarget.Character.Head
+        local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+
+        if onScreen then
+            local screenPos = Vector2.new(pos.X, pos.Y)
+            local dist = (screenPos - center).Magnitude
+
+            -- ต้องอยู่ใน FOV เท่านั้น
+            if dist <= FOVCircle.Radius then
+                Tracer.From = center
+                Tracer.To = screenPos
+                Tracer.Visible = true
+                return
+            end
+        end
+    end
+
+    -- ถ้าไม่เข้าเงื่อนไข
+    Tracer.Visible = false
 end)
