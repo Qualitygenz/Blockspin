@@ -204,3 +204,89 @@ CombatTab:Button({
         end
     end
 })
+
+Players.PlayerAdded:Connect(function(player)
+    if ignoreDropdown and ignoreDropdown.SetValues then
+        ignoreDropdown:SetValues(GetPlayerDropdownOptions())
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    for i=#IgnoredPlayers,1,-1 do
+        if IgnoredPlayers[i] == player.Name then
+            table.remove(IgnoredPlayers,i)
+        end
+    end
+    if ignoreDropdown and ignoreDropdown.SetValues then
+        ignoreDropdown:SetValues(GetPlayerDropdownOptions())
+    end
+end)
+
+-- Debug Gun
+local DebugGuns = {
+    ["P226"]=true, ["MP5"]=true, ["M24"]=true, ["Draco"]=true, ["Glock"]=true,
+    ["Sawnoff"]=true, ["Uzi"]=true, ["G3"]=true, ["C9"]=true, ["Hunting Rifle"]=true,
+    ["Anaconda"]=true, ["AK47"]=true, ["Remington"]=true, ["Double Barrel"]=true
+}
+
+local function IsHoldingAllowedGun(args)
+    local ok, weapon = pcall(function() return args[3] end)
+    if not ok then return false end
+    if typeof(weapon) == "Instance" and DebugGuns[weapon.Name] then return true end
+    for _, child in pairs(LocalPlayer.Character:GetChildren()) do
+        if (child:IsA("Tool") or child:IsA("Model")) and DebugGuns[child.Name] then return true end
+    end
+    return false
+end
+
+-- Tracer Line
+local tracerLine = Drawing.new("Line")
+tracerLine.Color = Color3.fromRGB(255,0,0)
+tracerLine.Thickness = 2
+tracerLine.Visible = false
+
+-- Perfiction
+local PREDICTION_BASE = 0.15
+local WALLBANG_FACTOR_ROOT = 1.0
+local WALLBANG_FACTOR_SEAT = 1.2
+local HEAD_VEL_FACTOR = 0.1
+local ROOT_VEL_FACTOR = 0.12
+
+local function PredictPosition(part, enableWallBang)
+    local root = part.Parent:FindFirstChild("HumanoidRootPart")
+    if not root then return part.Position end
+
+    local velocityFactor = (part.Name == "Head") and HEAD_VEL_FACTOR or ROOT_VEL_FACTOR
+    local baseVelocity = root.Velocity
+    if part:IsA("BasePart") then
+        baseVelocity = baseVelocity + (part.Velocity * velocityFactor)
+    end
+
+    local prediction = part.Position + (baseVelocity * PREDICTION_BASE)
+
+    if enableWallBang then
+        local seat = root:FindFirstChildWhichIsA("WeldConstraint") or root:FindFirstChildWhichIsA("Weld")
+        if seat and seat.Part0 and seat.Part0.Velocity then
+            local rootVel = root.Velocity * WALLBANG_FACTOR_ROOT
+            local seatVel = seat.Part0.Velocity * WALLBANG_FACTOR_SEAT
+            prediction = part.Position + ((rootVel + seatVel) * PREDICTION_BASE)
+        end
+    end
+
+    return prediction
+end
+
+-- Debug Bullet Function
+local function SpawnDebugBullet(startPos, targetPos)
+    local dist = (targetPos - startPos).Magnitude
+    local beam = Instance.new("Part")
+    beam.Anchored = true
+    beam.CanCollide = false
+    beam.Material = Enum.Material.Neon
+    beam.Size = Vector3.new(0.1,0.1,dist)
+    beam.CFrame = CFrame.new(startPos, targetPos) * CFrame.new(0,0,-dist/2)
+    local hue = (tick()*0.5)%1
+    beam.Color = Color3.fromHSV(hue, 1, 1)
+    beam.Parent = workspace
+    Debris:AddItem(beam, 0.5)
+end
