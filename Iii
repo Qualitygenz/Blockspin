@@ -91,3 +91,10 @@ end)
 if not LocalPlayer.Character then
 LocalPlayer.CharacterAdded:Wait()
 end
+
+local MainTab = Window:Tab({Title = "Main", Icon = "house"})
+local CombatTab = Window:Tab({Title = "Combat", Icon = "sword"})
+local EspTab = Window:Tab({Title = "Esp", Icon = "eye"})
+local CarTab = Window:Tab({Title = "Car", Icon = "car"})
+local MiscTab = Window:Tab({Title = "Misc", Icon = "hard-drive"})
+local SeverTab = Window:Tab({Title = "server", Icon = "server"})
