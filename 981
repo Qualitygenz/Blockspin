@@ -147,3 +147,18 @@ CombatTab:Toggle({
         EnableSuperbullet = v
     end
 })
+
+-- Body Part
+local CurrentTarget
+local BodyPartOptions = {"Head", "HumanoidRootPart"}
+local SelectedBodyPart = "Head"
+
+CombatTab:Dropdown({
+    Flag = "TargetBodyPart",
+    Title = "aim Part",
+    Values = "HumanoidRootPart",
+    Value = "Head",
+    Callback = function(option)
+        SelectedBodyPart = option
+    end
+})
