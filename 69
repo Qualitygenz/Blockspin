@@ -136,7 +136,7 @@ CombatTab:Toggle({
     Title = "Silent Aim",
     Default = false,
     Callback = function(v)
-        SilentAimEnabled = v
+        SilentAim = v
     end
 })
 
