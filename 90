@@ -100,6 +100,10 @@ local CarTab = Window:Tab({Title = "Car", Icon = "car"})
 local MiscTab = Window:Tab({Title = "Misc", Icon = "hard-drive"})
 local SeverTab = Window:Tab({Title = "server", Icon = "server"})
 
+-- Combat 
+local SilentAim = false
+local Superbullet = false
+
 -- FOV Circle
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Radius = 150
