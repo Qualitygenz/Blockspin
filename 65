@@ -162,3 +162,45 @@ CombatTab:Dropdown({
         SelectedBodyPart = option
     end
 })
+
+-- Ignore Players
+local Players = game:GetService("Players")
+local IgnoredPlayers = {}
+
+local function GetPlayerDropdownOptions()
+    local options = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        table.insert(options, player.Name) string
+    end
+    return options
+end
+
+local ignoreDropdown
+ignoreDropdown = CombatTab:Dropdown({
+    Flag = "IgnorePlayers",
+    Title = "Save Friends",
+    Values = GetPlayerDropdownOptions(),
+    Value = {},
+    Multi = true,
+    Callback = function(selectedOptions)
+        IgnoredPlayers = {}
+        for _, v in ipairs(selectedOptions) do
+            table.insert(IgnoredPlayers, v) 
+        end
+    end
+})
+
+CombatTab:Button({
+    Title = "Reset Save Friends",
+    Callback = function()
+        IgnoredPlayers = {}
+        if ignoreDropdown then
+            if ignoreDropdown.Reset then
+                ignoreDropdown:Reset()
+            end
+            if ignoreDropdown.SetValues then
+                ignoreDropdown:SetValues(GetPlayerDropdownOptions())
+            end
+        end
+    end
+})
