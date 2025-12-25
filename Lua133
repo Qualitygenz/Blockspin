@@ -309,7 +309,7 @@ oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,
 end)
 
 --// =========================
---// RGB TRACER (เส้นเดียว ใกล้สุด)
+--// RGB TRACER (หลังกำแพงก็ขึ้น)
 --// =========================
 local Tracer = Drawing.new("Line")
 Tracer.Visible = false
@@ -324,8 +324,8 @@ RunService.RenderStepped:Connect(function()
     Tracer.Color = Color3.fromHSV(hue, 1, 1)
 
     local center = Vector2.new(
-        Camera.ViewportSize.X/2,
-        Camera.ViewportSize.Y/2
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
     )
 
     if SilentAim
@@ -335,17 +335,16 @@ RunService.RenderStepped:Connect(function()
     and FOVCircle.Visible then
 
         local part = CurrentTarget.Character[SelectedBodyPart]
+        local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
 
-        if IsVisible(CurrentTarget.Character, part) then
-            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-            if onScreen then
-                local screenPos = Vector2.new(pos.X, pos.Y)
-                if (screenPos - center).Magnitude <= FOVCircle.Radius then
-                    Tracer.From = center
-                    Tracer.To = screenPos
-                    Tracer.Visible = true
-                    return
-                end
+        if onScreen then
+            local screenPos = Vector2.new(pos.X, pos.Y)
+
+            if (screenPos - center).Magnitude <= FOVCircle.Radius then
+                Tracer.From = center
+                Tracer.To = screenPos
+                Tracer.Visible = true
+                return
             end
         end
     end
