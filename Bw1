@@ -222,33 +222,6 @@ local function GetClosestTarget()
     return closest
 end
 
---// =========================
---// WALL CHECK
---// =========================
-local function IsVisible(targetChar, part)
-    local origin = Camera.CFrame.Position
-    local direction = (part.Position - origin)
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Blacklist
-    params.FilterDescendantsInstances = {
-        LocalPlayer.Character,
-        targetChar
-    }
-    params.IgnoreWater = true
-
-    local result = workspace:Raycast(origin, direction, params)
-
-    if not result then
-        return true
-    end
-
-    if result.Instance:IsDescendantOf(targetChar) then
-        return true
-    end
-
-    return false
-end
 
 --// =========================
 --// UPDATE TARGET + FOV
@@ -261,9 +234,6 @@ RunService.RenderStepped:Connect(function()
     CurrentTarget = SilentAim and GetClosestTarget() or nil
 end)
 
---// =========================
---// FIRE SERVER HOOK
---// =========================
 local oldFire
 oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,...)
     local args = {...}
@@ -279,15 +249,12 @@ oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 
         if part and hrp then
+            -- ✅ ยิงเฉพาะตอนเห็นตัว
             if IsVisible(char, part) then
-                -- ยิงปกติ
                 local ping = GetPing()
                 local aimPos = part.Position + (hrp.Velocity * ping * 1.1)
 
-                args[4] = CFrame.new(
-                    LocalPlayer.Character.Head.Position,
-                    aimPos
-                )
+                args[4] = CFrame.new(math.huge, math.huge, math.huge)
 
                 args[5] = {
                     [1] = {
@@ -298,10 +265,8 @@ oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,
                         }
                     }
                 }
-            else
-                -- หลังกำแพง
-                args[4] = CFrame.new(math.huge, math.huge, math.huge)
             end
+            -- ❌ ไม่ทำอะไรเลยถ้าอยู่หลังกำแพง
         end
     end
 
