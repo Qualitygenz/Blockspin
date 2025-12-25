@@ -162,81 +162,104 @@ CombatTab:Dropdown({
     end
 })
 
--- Ignore Players
-local Players = game:GetService("Players")
+--// =========================
+--// STATES
+--// =========================
+local SilentAim = false
+local SelectedBodyPart = "Head"
 local IgnoredPlayers = {}
-
-local function GetPlayerDropdownOptions()
-    local options = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        table.insert(options, player.Name) string
-    end
-    return options
-end
-
-local ignoreDropdown
-ignoreDropdown = CombatTab:Dropdown({
-    Flag = "IgnorePlayers",
-    Title = "Save Friends",
-    Values = GetPlayerDropdownOptions(),
-    Value = {},
-    Multi = true,
-    Callback = function(selectedOptions)
-        IgnoredPlayers = {}
-        for _, v in ipairs(selectedOptions) do
-            table.insert(IgnoredPlayers, v) 
-        end
-    end
-})
-
-CombatTab:Button({
-    Title = "Reset Save Friends",
-    Callback = function()
-        IgnoredPlayers = {}
-        if ignoreDropdown then
-            if ignoreDropdown.Reset then
-                ignoreDropdown:Reset()
-            end
-            if ignoreDropdown.SetValues then
-                ignoreDropdown:SetValues(GetPlayerDropdownOptions())
-            end
-        end
-    end
-})
-
---// =========================
---// SILENT AIM CORE (UI LINKED)
---// =========================
-
 local CurrentTarget = nil
 
---// Ping
-local function GetPing()
-    local stats = LocalPlayer:FindFirstChild("PlayerGui")
-        and LocalPlayer.PlayerGui:FindFirstChild("NetworkStats")
-    if stats and stats:FindFirstChild("PingLabel") then
-        local ping = tonumber(stats.PingLabel.Text:match("%d+"))
-        return ping and ping / 1000 or 0.15
+--// =========================
+--// FOV
+--// =========================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Radius = 150
+FOVCircle.Thickness = 1
+FOVCircle.Filled = false
+FOVCircle.Color = Color3.fromRGB(255,255,255)
+FOVCircle.Visible = false
+
+CombatTab:Toggle({
+    Title = "Show FOV",
+    Callback = function(v)
+        FOVCircle.Visible = v
     end
-    return 0.15
+})
+
+CombatTab:Slider({
+    Title = "FOV Size",
+    Step = 1,
+    Value = {Min=50, Max=800, Default=150},
+    Callback = function(v)
+        FOVCircle.Radius = v
+    end
+})
+
+CombatTab:Toggle({
+    Title = "Silent Aim",
+    Callback = function(v)
+        SilentAim = v
+    end
+})
+
+CombatTab:Dropdown({
+    Title = "Aim Part",
+    Values = {"Head","HumanoidRootPart"},
+    Value = "Head",
+    Callback = function(v)
+        SelectedBodyPart = v
+    end
+})
+
+--// =========================
+--// SAVE FRIENDS
+--// =========================
+local function GetPlayerList()
+    local t = {}
+    for _,p in ipairs(Players:GetPlayers()) do
+        table.insert(t,p.Name)
+    end
+    return t
 end
 
---// Ignore check
-local function IsIgnored(plr)
-    for _, name in ipairs(IgnoredPlayers) do
-        if plr.Name == name then
-            return true
+CombatTab:Dropdown({
+    Title = "Save Friends",
+    Values = GetPlayerList(),
+    Multi = true,
+    Callback = function(list)
+        table.clear(IgnoredPlayers)
+        for _,n in ipairs(list) do
+            table.insert(IgnoredPlayers,n)
         end
+    end
+})
+
+--// =========================
+--// SILENT AIM CORE
+--// =========================
+local function IsIgnored(plr)
+    for _,n in ipairs(IgnoredPlayers) do
+        if plr.Name == n then return true end
     end
     return false
 end
 
---// Get closest target in FOV
+local function GetPing()
+    local stats = LocalPlayer:FindFirstChild("PlayerGui")
+        and LocalPlayer.PlayerGui:FindFirstChild("NetworkStats")
+    if stats and stats:FindFirstChild("PingLabel") then
+        local p = tonumber(stats.PingLabel.Text:match("%d+"))
+        return p and p/1000 or 0.15
+    end
+    return 0.15
+end
+
 local function GetClosestTarget()
     local closest, shortest = nil, math.huge
     local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
 
-    for _, plr in ipairs(Players:GetPlayers()) do
+    for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer
         and not IsIgnored(plr)
         and plr.Character
@@ -247,9 +270,8 @@ local function GetClosestTarget()
 
             local part = plr.Character[SelectedBodyPart]
             local pos, onscreen = Camera:WorldToViewportPoint(part.Position)
-
             if onscreen then
-                local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                local dist = (Vector2.new(pos.X,pos.Y) - center).Magnitude
                 if dist <= FOVCircle.Radius and dist < shortest then
                     shortest = dist
                     closest = plr
@@ -257,62 +279,49 @@ local function GetClosestTarget()
             end
         end
     end
-
     return closest
 end
 
---// Update target
 RunService.RenderStepped:Connect(function()
-    FOVCircle.Position = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
-
-    if SilentAim then
-        CurrentTarget = GetClosestTarget()
-    else
-        CurrentTarget = nil
-    end
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    CurrentTarget = SilentAim and GetClosestTarget() or nil
 end)
 
 --// =========================
 --// FIRE SERVER HOOK
 --// =========================
-
 local oldFire
-oldFire = hookfunction(
-    ReplicatedStorage.Remotes.Send.FireServer,
-    function(self, ...)
-        local args = {...}
+oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,...)
+    local args = {...}
 
-        if SilentAim
-        and CurrentTarget
-        and args[2] == "shoot_gun"
-        and CurrentTarget.Character then
+    if SilentAim
+    and CurrentTarget
+    and args[2] == "shoot_gun"
+    and LocalPlayer.Character
+    and LocalPlayer.Character:FindFirstChild("Head") then
 
-            local part = CurrentTarget.Character:FindFirstChild(SelectedBodyPart)
-            local hrp  = CurrentTarget.Character:FindFirstChild("HumanoidRootPart")
+        local char = CurrentTarget.Character
+        local part = char and char:FindFirstChild(SelectedBodyPart)
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-            if part and hrp and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                local ping = GetPing()
-                local predicted = part.Position + (hrp.Velocity * ping * 1.1)
+        if part and hrp then
+            local ping = GetPing()
+            local aimPos = part.Position + (hrp.Velocity * ping * 1.1)
 
-                args[4] = CFrame.new(LocalPlayer.Character.Head.Position, aimPos)
-			    args[4] = CFrame.new(math.huge, math.huge, math.huge)
+            args[4] = CFrame.new(LocalPlayer.Character.Head.Position, aimPos)
+			args[4] = CFrame.new(math.huge, math.huge, math.huge)
 
-                -- Hit data (ช่วยให้ server รับ)
-                args[5] = {
+            args[5] = {
+                [1] = {
                     [1] = {
-                        [1] = {
-                            Instance = part,
-                            Position = predicted,
-                            Normal = Vector3.new(0,1,0)
-                        }
+                        Instance = part,
+                        Position = aimPos,
+                        Normal = Vector3.new(0,1,0)
                     }
                 }
-            end
+            }
         end
-
-        return oldFire(self, unpack(args))
     end
-)
+
+    return oldFire(self, unpack(args))
+end)
