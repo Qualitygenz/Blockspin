@@ -194,6 +194,8 @@ local function GetPing()
     return 0.15
 end
 
+
+
 local function GetClosestTarget()
     local closest, shortest = nil, math.huge
     local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
@@ -222,6 +224,34 @@ local function GetClosestTarget()
     return closest
 end
 
+local function IsVisible(targetChar, part)
+    local origin = Camera.CFrame.Position
+    local direction = (part.Position - origin)
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = {
+        LocalPlayer.Character,
+        targetChar
+    }
+    params.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, direction, params)
+
+    -- ถ้าไม่ชนอะไรเลย = มองเห็น
+    if not result then
+        return true
+    end
+
+    -- ถ้าชนแล้ว แต่เป็นส่วนของตัวเป้า = มองเห็น
+    if result.Instance:IsDescendantOf(targetChar) then
+        return true
+    end
+
+    -- นอกนั้น = หลังกำแพง
+    return false
+end
+
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = Vector2.new(
         Camera.ViewportSize.X/2,
@@ -237,17 +267,21 @@ local oldFire
 oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,...)
     local args = {...}
 
-    if SilentAim
-    and CurrentTarget
-    and args[2] == "shoot_gun"
-    and LocalPlayer.Character
-    and LocalPlayer.Character:FindFirstChild("Head") then
+if SilentAim
+and CurrentTarget
+and args[2] == "shoot_gun"
+and LocalPlayer.Character
+and LocalPlayer.Character:FindFirstChild("Head") then
 
-        local char = CurrentTarget.Character
-        local part = char and char:FindFirstChild(SelectedBodyPart)
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local char = CurrentTarget.Character
+    local part = char and char:FindFirstChild(SelectedBodyPart)
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 
-        if part and hrp then
+    if part and hrp then
+        local visible = IsVisible(char, part)
+
+        if visible then
+            -- 🔥 ยิงปกติ (เนียน)
             local ping = GetPing()
             local aimPos = part.Position + (hrp.Velocity * ping * 1.1)
 
@@ -265,11 +299,16 @@ oldFire = hookfunction(ReplicatedStorage.Remotes.Send.FireServer, function(self,
                     }
                 }
             }
+        else
+            -- 🚫 หลังกำแพง → math.huge
+            args[4] = CFrame.new(
+                math.huge,
+                math.huge,
+                math.huge
+            )
         end
     end
-
-    return oldFire(self, unpack(args))
-end)
+end
 
 --// =========================
 --// RGB TRACER LINE
