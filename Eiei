@@ -1,0 +1,1505 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "Quality x Premium [Blockspin]​",
+    Icon = "zap",
+    Author = "x2Nyx the one you know",
+    Folder = "MySuperHub",
+		
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 200,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+
+    User = {
+        Enabled = true,
+        Anonymous = false, -- เธเธฐเนเธเนเธเธทเนเธญเธเธฃเธดเธเธเธญเธเน€เธฃเธฒ
+        Name = LocalPlayer.Name, -- เธเธทเนเธญเธเธญเธเธเธนเนเน€เธฅเนเธ
+        Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId, -- เธฃเธนเธเธซเธฑเธงเธเธนเนเน€เธฅเนเธ
+        Callback = function()
+            print("Clicked user section!")
+        end,
+    },
+})
+
+Window:Tag({
+    Title = "Free",
+    Icon = "lock-open",
+    Color = Color3.fromHex("#FF0000")
+})
+
+-- Tabs
+local CombatTab = Window:Tab({Title = "Combat", Icon = "sword"})
+local EspTab = Window:Tab({Title = "ESP", Icon = "eye"})
+local PlayerTab = Window:Tab({Title = "Player", Icon = "user"})
+local MiscTab = Window:Tab({Title = "Misc", Icon = "cog"})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local DroppedFolder = workspace:WaitForChild("DroppedItems")
+
+-- Combat 
+local SilentAimEnabled = false
+local EnableWallBang = false
+
+CombatTab:Toggle({
+    Title = "Enable Silent Aim",
+    Default = false,
+    Callback = function(v)
+        SilentAimEnabled = v
+    end
+})
+
+CombatTab:Toggle({
+    Title = "Enable Wall Bang",
+    Default = false,
+    Callback = function(v)
+        EnableWallBang = v
+    end
+})
+
+-- FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Radius = 150
+FOVCircle.Thickness = 0.5
+FOVCircle.Filled = false
+FOVCircle.Color = Color3.fromRGB(255,0,0)
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+FOVCircle.Visible = false
+local showFov = false
+
+CombatTab:Toggle({
+    Title = "Enable FOV Circle",
+    Default = false,
+    Callback = function(state)
+        showFov = state
+        FOVCircle.Visible = showFov
+    end
+})
+
+CombatTab:Slider({
+    Title = "FOV Radius",
+    Step = 1,
+    Value = {Min = 50, Max = 500, Default = FOVCircle.Radius},
+    Callback = function(value)
+        FOVCircle.Radius = tonumber(value)
+    end
+})
+
+-- Body Part
+local CurrentTarget
+local BodyPartOptions = {"Head", "HumanoidRootPart"}
+local SelectedBodyPart = "Head"
+
+CombatTab:Dropdown({
+    Flag = "TargetBodyPart",
+    Title = "Lock Body Part",
+    Values = BodyPartOptions,
+    Value = "Head",
+    Callback = function(option)
+        SelectedBodyPart = option
+    end
+})
+
+-- Ignore Players
+local Players = game:GetService("Players")
+local IgnoredPlayers = {}
+
+local function GetPlayerDropdownOptions()
+    local options = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        table.insert(options, player.Name) -- เธเธทเธเธเนเธฒเน€เธเนเธ string
+    end
+    return options
+end
+
+local ignoreDropdown
+ignoreDropdown = CombatTab:Dropdown({
+    Flag = "IgnorePlayers",
+    Title = "Ignore Players",
+    Values = GetPlayerDropdownOptions(),
+    Value = {},
+    Multi = true,
+    Callback = function(selectedOptions)
+        IgnoredPlayers = {}
+        for _, v in ipairs(selectedOptions) do
+            table.insert(IgnoredPlayers, v) -- เนเธเนเธ•เธฃเธ เน
+        end
+    end
+})
+
+CombatTab:Button({
+    Title = "Reset Ignored Players",
+    Callback = function()
+        IgnoredPlayers = {}
+        if ignoreDropdown then
+            if ignoreDropdown.Reset then
+                ignoreDropdown:Reset()
+            end
+            if ignoreDropdown.SetValues then
+                ignoreDropdown:SetValues(GetPlayerDropdownOptions())
+            end
+        end
+    end
+})
+
+Players.PlayerAdded:Connect(function(player)
+    if ignoreDropdown and ignoreDropdown.SetValues then
+        ignoreDropdown:SetValues(GetPlayerDropdownOptions())
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    for i=#IgnoredPlayers,1,-1 do
+        if IgnoredPlayers[i] == player.Name then
+            table.remove(IgnoredPlayers,i)
+        end
+    end
+    if ignoreDropdown and ignoreDropdown.SetValues then
+        ignoreDropdown:SetValues(GetPlayerDropdownOptions())
+    end
+end)
+
+-- Debug Gun
+local DebugGuns = {
+    ["P226"]=true, ["MP5"]=true, ["M24"]=true, ["Draco"]=true, ["Glock"]=true,
+    ["Sawnoff"]=true, ["Uzi"]=true, ["G3"]=true, ["C9"]=true, ["Hunting Rifle"]=true,
+    ["Anaconda"]=true, ["AK47"]=true, ["Remington"]=true, ["Double Barrel"]=true
+}
+
+local function IsHoldingAllowedGun(args)
+    local ok, weapon = pcall(function() return args[3] end)
+    if not ok then return false end
+    if typeof(weapon) == "Instance" and DebugGuns[weapon.Name] then return true end
+    for _, child in pairs(LocalPlayer.Character:GetChildren()) do
+        if (child:IsA("Tool") or child:IsA("Model")) and DebugGuns[child.Name] then return true end
+    end
+    return false
+end
+
+-- Tracer Line
+local tracerLine = Drawing.new("Line")
+tracerLine.Color = Color3.fromRGB(255,0,0)
+tracerLine.Thickness = 2
+tracerLine.Visible = false
+
+-- Perfiction
+local PREDICTION_BASE = 0.15
+local WALLBANG_FACTOR_ROOT = 1.0
+local WALLBANG_FACTOR_SEAT = 1.2
+local HEAD_VEL_FACTOR = 0.1
+local ROOT_VEL_FACTOR = 0.12
+
+local function PredictPosition(part, enableWallBang)
+    local root = part.Parent:FindFirstChild("HumanoidRootPart")
+    if not root then return part.Position end
+
+    local velocityFactor = (part.Name == "Head") and HEAD_VEL_FACTOR or ROOT_VEL_FACTOR
+    local baseVelocity = root.Velocity
+    if part:IsA("BasePart") then
+        baseVelocity = baseVelocity + (part.Velocity * velocityFactor)
+    end
+
+    local prediction = part.Position + (baseVelocity * PREDICTION_BASE)
+
+    if enableWallBang then
+        local seat = root:FindFirstChildWhichIsA("WeldConstraint") or root:FindFirstChildWhichIsA("Weld")
+        if seat and seat.Part0 and seat.Part0.Velocity then
+            local rootVel = root.Velocity * WALLBANG_FACTOR_ROOT
+            local seatVel = seat.Part0.Velocity * WALLBANG_FACTOR_SEAT
+            prediction = part.Position + ((rootVel + seatVel) * PREDICTION_BASE)
+        end
+    end
+
+    return prediction
+end
+
+-- Debug Bullet Function
+local function SpawnDebugBullet(startPos, targetPos)
+    local dist = (targetPos - startPos).Magnitude
+    local beam = Instance.new("Part")
+    beam.Anchored = true
+    beam.CanCollide = false
+    beam.Material = Enum.Material.Neon
+    beam.Size = Vector3.new(0.1,0.1,dist)
+    beam.CFrame = CFrame.new(startPos, targetPos) * CFrame.new(0,0,-dist/2)
+    local hue = (tick()*0.5)%1
+    beam.Color = Color3.fromHSV(hue, 1, 1)
+    beam.Parent = workspace
+    Debris:AddItem(beam, 0.5)
+end
+
+-- Player ESP
+local ESPs = {}
+local ShowESP = false
+local EspShowNameEnabled, EspHealthEnabled = false, false
+local PlayerNameLabels, PlayerHealthBars = {}, {}
+
+local function NewBox()
+    local box = {Lines={}}
+    for i=1,12 do
+        local line = Drawing.new("Line")
+        line.Color = Color3.fromRGB(255,255,255)
+        line.Thickness = 1.9
+        line.Visible = false
+        table.insert(box.Lines,line)
+    end
+    function box:Remove()
+        for _, l in ipairs(self.Lines) do
+            if l then pcall(function() l:Remove() end) end
+        end
+    end
+    return box
+end
+
+local function SetupPlayerESP(player)
+    if player == LocalPlayer then return end
+    if ESPs[player] then return end
+    local entry = {box = NewBox(), char = nil}
+    ESPs[player] = entry
+    player.CharacterAdded:Connect(function(char)
+        entry.char = char
+    end)
+    player.CharacterRemoving:Connect(function()
+        entry.char = nil
+        for _, l in ipairs(entry.box.Lines) do l.Visible = false end
+        if PlayerNameLabels[player] then PlayerNameLabels[player].Visible = false end
+        if PlayerHealthBars[player] then PlayerHealthBars[player].Visible = false end
+    end)
+    if player.Character then
+        entry.char = player.Character
+    end
+end
+
+local function CleanupPlayerESP(player)
+    if ESPs[player] then
+        ESPs[player].box:Remove()
+        ESPs[player] = nil
+    end
+    if PlayerNameLabels[player] then PlayerNameLabels[player]:Remove(); PlayerNameLabels[player]=nil end
+    if PlayerHealthBars[player] then PlayerHealthBars[player]:Remove(); PlayerHealthBars[player]=nil end
+end
+
+for _, p in ipairs(Players:GetPlayers()) do SetupPlayerESP(p) end
+Players.PlayerAdded:Connect(SetupPlayerESP)
+Players.PlayerRemoving:Connect(CleanupPlayerESP)
+
+EspTab:Toggle({
+    Title = "Show Box",
+    Default = false,
+    Callback = function(state)
+        ShowESP = state
+        if not state then
+            for _, entry in pairs(ESPs) do
+                for _, l in ipairs(entry.box.Lines) do l.Visible = false end
+            end
+        end
+    end
+})
+
+EspTab:Toggle({
+    Title="Show Name",
+    Default=false,
+    Callback=function(state)
+        EspShowNameEnabled = state
+        if not state then
+            for _, t in pairs(PlayerNameLabels) do t.Visible = false end
+        end
+    end
+})
+
+EspTab:Toggle({
+    Title="Show Health Bar",
+    Default=false,
+    Callback=function(state)
+        EspHealthEnabled = state
+        if not state then
+            for _, b in pairs(PlayerHealthBars) do b.Visible = false end
+        end
+    end
+})
+
+-- Dropped Items ESP
+local ItemESPs = {}
+local ShowItemESP = false
+
+EspTab:Toggle({
+    Title="Show Dropped Items",
+    Default=false,
+    Callback=function(state)
+        ShowItemESP = state
+        for _, data in pairs(ItemESPs) do
+            -- Toggle Highlights
+            for _, hl in ipairs(data.highlights) do
+                hl.Enabled = ShowItemESP
+            end
+            -- Toggle Names
+            if data.label then
+                data.label.Visible = ShowItemESP
+            end
+        end
+    end
+})
+
+local BlueColor = Color3.fromRGB(0, 150, 255)
+local GreenColor = Color3.fromRGB(0, 255, 0)
+
+local function getItemColor(item)
+    if item.Name:lower():find("money") then
+        return GreenColor
+    else
+        return BlueColor
+    end
+end
+
+local function createItemESP(item)
+    if ItemESPs[item] then return end
+    local color = getItemColor(item)
+    local highlights = {}
+
+    -- Highlight
+    if item:IsA("BasePart") then
+        local hl = Instance.new("Highlight")
+        hl.Adornee = item
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.FillTransparency = 0.7
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Enabled = ShowItemESP
+        hl.Parent = item
+        table.insert(highlights, hl)
+    elseif item:IsA("Model") then
+        for _, part in ipairs(item:GetDescendants()) do
+            if part:IsA("BasePart") then
+                local hl = Instance.new("Highlight")
+                hl.Adornee = part
+                hl.FillColor = color
+                hl.OutlineColor = color
+                hl.FillTransparency = 0.7
+                hl.OutlineTransparency = 0
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Enabled = ShowItemESP
+                hl.Parent = part
+                table.insert(highlights, hl)
+            end
+        end
+    end
+
+    -- BillboardGui (Name)
+    local basePart = item:IsA("BasePart") and item or (item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart"))
+    local label
+    if basePart then
+        local bb = Instance.new("BillboardGui")
+        bb.Adornee = basePart
+        bb.Size = UDim2.new(0,50,0,10)
+        bb.AlwaysOnTop = true
+        bb.StudsOffset = Vector3.new(0, (basePart.Size.Y/2)+1,0)
+        bb.Parent = basePart
+
+        label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.Text = "["..item.Name.."]"
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.TextColor3 = color
+        label.TextStrokeTransparency = 0.2
+        label.Visible = ShowItemESP
+        label.Parent = bb
+    end
+
+    ItemESPs[item] = {item = item, highlights = highlights, label = label}
+end
+
+local function removeItemESP(item)
+    if ItemESPs[item] then
+        for _, hl in ipairs(ItemESPs[item].highlights) do
+            if hl and hl.Parent then hl:Destroy() end
+        end
+        if ItemESPs[item].label and ItemESPs[item].label.Parent then
+            ItemESPs[item].label.Parent:Destroy()
+        end
+        ItemESPs[item] = nil
+    end
+end
+
+for _, item in ipairs(DroppedFolder:GetChildren()) do createItemESP(item) end
+DroppedFolder.ChildAdded:Connect(createItemESP)
+DroppedFolder.ChildRemoved:Connect(removeItemESP)
+
+-- Weapon ESP
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ContentProvider = game:GetService("ContentProvider")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Config
+local ItemESP_Enabled = false
+local BillboardCache = {}
+local ItemESP_UpdateConnections = {}
+local WeaponDB = {}
+local PreloadedImages = {}
+
+local function generateUniqueKey(tool)
+    if not tool or not tool:IsA("Tool") then return nil end
+    local itemId = tool:GetAttribute("ItemId") or tool:GetAttribute("Id")
+    if itemId and itemId ~= "" and (typeof(itemId) == "string" or typeof(itemId) == "number") then
+        return "ITEMID_" .. tostring(itemId)
+    end
+    local partsData = {}
+    for _, part in ipairs(tool:GetDescendants()) do
+        if part:IsA("SpecialMesh") and part.MeshId and part.MeshId ~= "" and part.MeshId ~= "rbxassetid://" then
+            table.insert(partsData, "MESH_"..part.MeshId.."|TEX_"..(part.TextureId or "NOTEX"))
+        elseif part:IsA("MeshPart") and part.MeshId and part.MeshId ~= "" and part.MeshId ~= "rbxassetid://" then
+            table.insert(partsData, "MESH_"..part.MeshId.."|TEX_"..(part.TextureID or "NOTEX"))
+        elseif part:IsA("Decal") and part.Texture and part.Texture ~= "" and part.Texture ~= "rbxassetid://" then
+            table.insert(partsData, "DECAL_"..part.Texture)
+        elseif part:IsA("Part") then
+            table.insert(partsData, "PART_"..part.Name.."_"..part.Size.X.."x"..part.Size.Y.."x"..part.Size.Z)
+        end
+    end
+    if #partsData > 0 then
+        table.sort(partsData)
+        return "MESHKEY_" .. table.concat(partsData, ";")
+    end
+    local displayName = tool:GetAttribute("DisplayName") or tool.Name
+    local toolName = tool.Name
+    local imageId = tool:GetAttribute("ImageId") or "NOIMAGE"
+    return "NAME_" .. displayName .. "_" .. toolName .. "_" .. imageId
+end
+
+local function registerItems(folder)
+    for _, tool in ipairs(folder:GetDescendants()) do
+        if not tool:IsA("Tool") then continue end
+        local key = generateUniqueKey(tool)
+        if not key then continue end
+        local displayName = tool:GetAttribute("DisplayName") or tool.Name
+        local imageId = tool:GetAttribute("ImageId") or "rbxassetid://7072725737"
+        WeaponDB[key] = {
+            Name = displayName,
+            ImageId = imageId,
+            ToolName = tool.Name,
+            Key = key
+        }
+        if imageId and imageId ~= "" and not PreloadedImages[imageId] then
+            PreloadedImages[imageId] = true
+            task.spawn(function()
+                pcall(function()
+                    ContentProvider:PreloadAsync({imageId})
+                end)
+            end)
+        end
+    end
+end
+local function getWeaponInfo(tool)
+    if not tool or not tool:IsA("Tool") then return nil end
+    local key = generateUniqueKey(tool)
+    return WeaponDB[key]
+end
+
+local function createBillboardForPlayer(player)
+    if player == LocalPlayer or BillboardCache[player] then return end
+    local billboard, container, layout
+    local connections = {}
+
+    local function updateESP()
+        if not billboard or not billboard.Parent then return end
+        container:ClearAllChildren()
+        if not ItemESP_Enabled then
+            billboard.Enabled = false
+            return
+        end
+        billboard.Enabled = true
+        local currentTools = {}
+        local function scan(folder)
+            if not folder then return end
+            for _, tool in ipairs(folder:GetChildren()) do
+                if tool:IsA("Tool") and tool.Name ~= "Fists" then
+                    local info = getWeaponInfo(tool)
+                    if info then
+                        table.insert(currentTools, info)
+                    end
+                end
+            end
+        end
+        local char = player.Character
+        if char then
+            scan(char)
+            local backpack = player:FindFirstChild("Backpack")
+            if backpack then scan(backpack) end
+        end
+
+        layout = Instance.new("UIGridLayout")
+        layout.CellSize = UDim2.new(0, 35, 0, 35)
+        layout.CellPadding = UDim2.new(0, 6, 0, 0)
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.VerticalAlignment = Enum.VerticalAlignment.Center
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = container
+
+        for i, info in ipairs(currentTools) do
+            local img = Instance.new("ImageLabel")
+            img.Parent = container
+            img.Size = UDim2.new(0, 35, 0, 35)
+            img.BackgroundTransparency = 1
+            img.Image = info.ImageId or "rbxassetid://7072725737"
+            img.ScaleType = Enum.ScaleType.Fit
+            img.LayoutOrder = i
+            img.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+
+    local function setupBillboard()
+        local char = player.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        if BillboardCache[player] then
+            BillboardCache[player]:Destroy()
+        end
+
+        for _, conn in pairs(connections) do
+            if conn.Connected then conn:Disconnect() end
+        end
+        connections = {}
+
+        billboard = Instance.new("BillboardGui")
+        billboard.Name = "ItemESP"
+        billboard.Adornee = hrp
+        billboard.Size = UDim2.new(0, 280, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, -6.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.LightInfluence = 0
+        billboard.Enabled = ItemESP_Enabled
+        billboard.Parent = hrp
+
+        container = Instance.new("Frame", billboard)
+        container.Size = UDim2.new(1, 0, 1, 0)
+        container.BackgroundTransparency = 1
+
+        BillboardCache[player] = billboard
+        updateESP()
+
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            table.insert(connections, backpack.ChildAdded:Connect(updateESP))
+            table.insert(connections, backpack.ChildRemoved:Connect(updateESP))
+        end
+
+        table.insert(connections, char.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then task.defer(updateESP) end
+        end))
+        table.insert(connections, char.ChildRemoved:Connect(function(child)
+            if child:IsA("Tool") then task.defer(updateESP) end
+        end))
+        table.insert(connections, player.ChildAdded:Connect(function(child)
+            if child.Name == "Backpack" then
+                task.wait()
+                table.insert(connections, child.ChildAdded:Connect(updateESP))
+                table.insert(connections, child.ChildRemoved:Connect(updateESP))
+                updateESP()
+            end
+        end))
+    end
+
+    if player.Character then task.spawn(setupBillboard) end
+    table.insert(connections, player.CharacterAdded:Connect(function()
+        task.wait(1)
+        setupBillboard()
+    end))
+    ItemESP_UpdateConnections[player] = connections
+end
+
+pcall(function()
+    local itemsFolder = ReplicatedStorage:WaitForChild("Items", 5)
+    if itemsFolder then registerItems(itemsFolder) end
+
+    for _, obj in ipairs(ReplicatedStorage:GetChildren()) do
+        if obj:IsA("Folder") and (obj.Name:find("Weapon") or obj.Name:find("Item") or obj.Name:find("Tool")) then
+            registerItems(obj)
+        end
+    end
+
+    registerItems(game:GetService("StarterPack"))
+end)
+
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then
+        createBillboardForPlayer(p)
+    end
+end
+
+Players.PlayerAdded:Connect(function(p)
+    if p ~= LocalPlayer then
+        createBillboardForPlayer(p)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    if BillboardCache[p] then
+        BillboardCache[p]:Destroy()
+        BillboardCache[p] = nil
+    end
+    if ItemESP_UpdateConnections[p] then
+        for _, conn in pairs(ItemESP_UpdateConnections[p]) do
+            if conn.Connected then conn:Disconnect() end
+        end
+        ItemESP_UpdateConnections[p] = nil
+    end
+end)
+
+EspTab:Toggle({
+    Title = "Show Weapon",
+    Default = false,
+    Callback = function(state)
+        ItemESP_Enabled = state
+        for _, p in pairs(Players:GetPlayers()) do
+            if BillboardCache[p] then
+                BillboardCache[p].Enabled = ItemESP_Enabled
+                if ItemESP_Enabled then
+                    -- เธญเธฑเธเน€เธ”เธ•เธญเธฒเธงเธธเธเธ—เธฑเธเธ—เธต
+                    local updateFunc = ItemESP_UpdateConnections[p] and ItemESP_UpdateConnections[p][1]
+                    if updateFunc then pcall(updateFunc) end
+                end
+            end
+        end
+    end
+})
+
+-- Show Distance
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local ShowDistance = false
+local playerGuis = {}
+
+local function createDistanceGui(targetPlayer)
+    if targetPlayer == LocalPlayer then return end
+    if not targetPlayer.Character then return end
+    local rootPart = targetPlayer.Character:WaitForChild("HumanoidRootPart", 5)
+    if not rootPart then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "DistanceGui"
+    billboard.Adornee = rootPart
+    billboard.Size = UDim2.new(0, 40, 0, 12)
+    billboard.StudsOffset = Vector3.new(0, -5.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.ClipsDescendants = false
+    billboard.Enabled = ShowDistance
+    billboard.MaxDistance = 3000
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Parent = billboard
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextScaled = false
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = 8
+    textLabel.Text = "[0m]"
+
+    billboard.Parent = targetPlayer.Character
+
+    return {Billboard = billboard, Label = textLabel}
+end
+
+local function addPlayerGui(player)
+    local function onCharacter(character)
+        local guiData = createDistanceGui(player)
+        if guiData then
+            playerGuis[player] = guiData
+        end
+    end
+    if player.Character then
+        onCharacter(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacter)
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    addPlayerGui(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    addPlayerGui(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if playerGuis[player] then
+        if playerGuis[player].Billboard then
+            playerGuis[player].Billboard:Destroy()
+        end
+        playerGuis[player] = nil
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not ShowDistance then return end
+    for player, guiData in pairs(playerGuis) do
+        local gui = guiData.Label
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            gui.Text = string.format("[%0.1fm]", distance)
+        end
+    end
+end)
+
+EspTab:Toggle({
+    Title = "Show Distance",
+    Default = false,
+    Callback = function(state)
+        ShowDistance = state
+        for _, guiData in pairs(playerGuis) do
+            guiData.Billboard.Enabled = ShowDistance
+        end
+    end
+})
+
+-- Player Tab: High Jump
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local defaultJumpPower = 20
+local maxJumpPower = 100
+local highJumpPower = 60
+local highJumpEnabled = false
+
+local function setJumpPower(power)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.UseJumpPower = true
+        hum.JumpPower = math.clamp(power, 0, maxJumpPower)
+    end
+end
+
+local function setupCharacter(char)
+    local hum = char:WaitForChild("Humanoid")
+
+    hum.AutoJumpEnabled = false  
+
+    if highJumpEnabled then
+        hum.UseJumpPower = true
+        hum.JumpPower = highJumpPower
+    else
+        hum.JumpPower = defaultJumpPower
+    end
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+
+if player.Character then
+    setupCharacter(player.Character)
+end
+
+PlayerTab:Toggle({
+    Title = "Enable High Jump",
+    Default = false,
+    Callback = function(state)
+        highJumpEnabled = state
+        if state then
+            setJumpPower(highJumpPower)
+        else
+            setJumpPower(defaultJumpPower)
+        end
+    end
+})
+
+PlayerTab:Slider({
+    Title = "High Jump Power",
+    Value = {Min = 20, Max = maxJumpPower, Default = highJumpPower},
+    Step = 1,
+    Callback = function(value)
+        highJumpPower = tonumber(value)
+        if highJumpEnabled then
+            setJumpPower(highJumpPower)
+        end
+    end
+})
+
+local speedEnabled = false
+local speedMultiplier = 0.10
+
+PlayerTab:Toggle({
+    Title = "Enable Walk Speed",
+    Default = false,
+    Callback = function(state)
+        speedEnabled = state
+    end
+})
+
+PlayerTab:Slider({
+    Title = "Speed Multiplier",
+    Value = {Min = 0.05, Max = 0.15, Default = speedMultiplier},
+    Step = 0.01,
+    Callback = function(value)
+        speedMultiplier = tonumber(value)
+    end
+})
+
+RunService.RenderStepped:Connect(function(delta)
+    if speedEnabled and player.Character then
+        local char = player.Character
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if hum and root then
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                root.CFrame = root.CFrame + moveDir.Unit * speedMultiplier * delta * 60
+            end
+        end
+    end
+end)
+
+-- Anti-Dead
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local antiDeadEnabled = false
+local isAntiDead = false
+local depth = 3
+local fakeChar
+
+local function getCharData()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    local root = char:WaitForChild("HumanoidRootPart")
+    return char, hum, root
+end
+
+local function forceDownReal(root, hum, char)
+    local targetY = root.Position.Y - depth
+    root.CFrame = CFrame.new(root.Position.X, targetY, root.Position.Z)
+    root.Velocity = Vector3.zero
+    root.AssemblyLinearVelocity = Vector3.zero
+    hum.PlatformStand = true
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end
+
+local function createFakeCharacter(root)
+    local dummy = Instance.new("Model")
+    dummy.Name = player.Name .. "_Fake"
+    local hrp = Instance.new("Part")
+    hrp.Name = "HumanoidRootPart"
+    hrp.Size = Vector3.new(2,2,1)
+    hrp.Anchored = true
+    hrp.CanCollide = true
+    hrp.Position = root.Position
+    hrp.Parent = dummy
+    local humanoid = Instance.new("Humanoid")
+    humanoid.Parent = dummy
+    dummy.Parent = workspace
+    return dummy
+end
+
+local function startAntiDeadLoop()
+    if isAntiDead then return end
+    isAntiDead = true
+
+    local char, hum, root = getCharData()
+    fakeChar = createFakeCharacter(root)
+    local fakeRoot = fakeChar:FindFirstChild("HumanoidRootPart")
+
+    task.spawn(function()
+        while antiDeadEnabled and hum.Health > 0 and isAntiDead and hum.Health <= 21 do
+            forceDownReal(root, hum, char)
+
+            local power = 3
+            local dx = math.random(-power, power)
+            local dz = math.random(-power, power)
+            local spin = CFrame.Angles(0, math.rad(50), 0)
+            root.CFrame = (root.CFrame * spin) * CFrame.new(dx, 0, dz)
+
+            if fakeRoot then
+                fakeRoot.CFrame = root.CFrame + Vector3.new(0, depth, 0)
+            end
+
+            RunService.Heartbeat:Wait()
+        end
+
+        if fakeChar then
+            fakeChar:Destroy()
+            fakeChar = nil
+        end
+        hum.PlatformStand = false
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+        root.CFrame = root.CFrame + Vector3.new(0, depth + 2, 0)
+        isAntiDead = false
+    end)
+end
+
+local function connectAntiDead(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.HealthChanged:Connect(function(hp)
+        if antiDeadEnabled then
+            if hp <= 21 and not isAntiDead then
+                startAntiDeadLoop()
+            elseif hp >= 31 and isAntiDead then
+                
+                local char, hum, root = getCharData()
+                if fakeChar then
+                    fakeChar:Destroy()
+                    fakeChar = nil
+                end
+                hum.PlatformStand = false
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+                root.CFrame = root.CFrame + Vector3.new(0, depth + 2, 0)
+                isAntiDead = false
+            end
+        end
+    end)
+end
+
+if player.Character then
+    connectAntiDead(player.Character)
+end
+
+player.CharacterAdded:Connect(connectAntiDead)
+
+PlayerTab:Toggle({
+    Title = "Enable Anti-Dead",
+    Default = false,
+    Callback = function(state)
+        antiDeadEnabled = state
+
+        if antiDeadEnabled and player.Character then
+            local hum = player.Character:FindFirstChild("Humanoid")
+            if hum and hum.Health <= 21 and not isAntiDead then
+                startAntiDeadLoop()
+            end
+        end
+    end
+})
+
+player.CharacterAdded:Connect(function(char)
+    local humanoid = char:WaitForChild("Humanoid")
+    humanoid.UseJumpPower = true
+    wait(0.1)
+    if highJumpEnabled then
+        setJumpPower(highJumpPower)
+    else
+        setJumpPower(defaultJumpPower)
+    end
+end)
+
+-- Pickup Itemlocal Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+local PICKUP_DISTANCE = 350
+local TOUCH_REPEAT = 25
+
+local pickupEnabled = false
+
+local function firetouch(partA, partB)
+    for i = 1, TOUCH_REPEAT do
+        firetouchinterest(partA, partB, 0)
+        firetouchinterest(partA, partB, 1)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if pickupEnabled then
+        for _, item in pairs(workspace.DroppedItems:GetChildren()) do
+            local zone = item:FindFirstChild("PickUpZone")
+            if zone and zone:IsA("BasePart") then
+                local dist = (HRP.Position - zone.Position).Magnitude
+                if dist <= PICKUP_DISTANCE then
+                    firetouch(zone, HRP)
+                end
+            end
+        end
+    end
+end)
+PlayerTab:Toggle({
+    Title = "Pickup Item",
+    Default = false,
+    Callback = function(state)
+        pickupEnabled = state
+    end
+})
+
+local currentPlatform = nil
+
+local function Snap()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+
+    local warpDistance = 12
+    local platformHeight = 1
+    local platformSize = Vector3.new(6, 1, 6)
+    local floatHeight = 2
+    local floatTime = 2
+
+    if currentPlatform and currentPlatform.Parent then
+        currentPlatform:Destroy()
+        currentPlatform = nil
+    end
+
+    local platformPos = hrp.Position - Vector3.new(0, warpDistance, 0) - Vector3.new(0, platformHeight/2, 0)
+
+    local platform = Instance.new("Part")
+    platform.Size = platformSize
+    platform.Position = platformPos
+    platform.Anchored = true
+    platform.CanCollide = true
+    platform.Transparency = 1
+    platform.Parent = workspace
+
+    currentPlatform = platform
+
+    local targetPos = platformPos + Vector3.new(0, floatHeight + platformHeight/2, 0)
+    hrp.CFrame = CFrame.new(targetPos)
+
+    hrp.Anchored = true
+    humanoid.PlatformStand = true
+
+    delay(floatTime, function()
+        hrp.Anchored = false
+        humanoid.PlatformStand = false
+        if currentPlatform and currentPlatform.Parent then
+            currentPlatform:Destroy()
+            currentPlatform = nil
+        end
+    end)
+end
+
+PlayerTab:Button({
+    Title = "Snap",
+    Callback = Snap
+})
+
+setJumpPower(defaultJumpPower)
+
+local hudText = MiscTab:Paragraph({
+    Title = "",
+    Desc = "",
+})
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local lastUpdate = tick()
+local frameCount = 0
+local fps = 0
+
+local function coloredText(text, colorHex)
+    return string.format("<font color=\"%s\">%s</font>", colorHex, text)
+end
+
+local function divider()
+    return coloredText(" | ", "#AAAAAA")
+end
+
+RunService.RenderStepped:Connect(function()
+    frameCount = frameCount + 1
+    if tick() - lastUpdate >= 1 then
+        fps = frameCount / (tick() - lastUpdate)
+        frameCount = 0
+        lastUpdate = tick()
+    end
+
+    local ping = math.floor(player:GetNetworkPing() * 1000)
+    local playerCount = #Players:GetPlayers()
+    local displayText = table.concat({
+        coloredText("โก FPS: "..math.floor(fps), "#00FF00"),
+        divider(),
+        coloredText("๐ Ping: "..ping.."ms", "#00BFFF"),
+        divider(),
+        coloredText("๐‘ฅ Players: "..playerCount, "#FFFF00")
+    })
+
+    hudText:SetTitle(displayText)
+end)
+
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local placeId = game.PlaceId
+local visitedServers = {}
+
+MiscTab:Input({
+    Title = "Teleport to JobId",
+    Placeholder = "Enter JobId...",
+    Callback = function(jobid)
+        if jobid and jobid ~= "" then
+            TeleportService:TeleportToPlaceInstance(placeId, jobid, player)
+            WindUI:Notify({
+                Title = "Teleport",
+                Content = "Teleporting to JobId: " .. jobid,
+                Color = Color3.fromRGB(0, 162, 255)
+            })
+        end
+    end
+})
+
+MiscTab:Button({
+    Title = "Copy Current JobId",
+    Callback = function()
+        local jobid = game.JobId
+        if jobid then
+            pcall(function()
+                setclipboard(jobid)
+            end)
+            WindUI:Notify({
+                Title = "JobId Copied",
+                Content = "Copied JobId to clipboard: " .. jobid,
+                Color = Color3.fromRGB(0, 255, 0) -- เน€เธเธตเธขเธง
+            })
+        end
+    end
+})
+
+local function GetServers()
+    local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100"
+    local servers = {}
+    local cursor
+    repeat
+        local reqUrl = url
+        if cursor then
+            reqUrl = reqUrl.."&cursor="..cursor
+        end
+        local success, res = pcall(function()
+            return game:HttpGet(reqUrl)
+        end)
+        if success then
+            local data = HttpService:JSONDecode(res)
+            for _, s in ipairs(data.data) do
+                if s.playing < s.maxPlayers then
+                    table.insert(servers, s)
+                end
+            end
+            cursor = data.nextPageCursor
+        else
+            break
+        end
+    until not cursor
+    return servers
+end
+
+local function HopServer()
+    local servers = GetServers()
+    for _, s in ipairs(servers) do
+        if not visitedServers[s.id] then
+            visitedServers[s.id] = true
+            TeleportService:TeleportToPlaceInstance(placeId, s.id, player)
+            WindUI:Notify({
+                Title = "Hop Server",
+                Content = "Hopping to server: " .. s.id,
+                Color = Color3.fromRGB(255, 162, 0) -- เธชเนเธก
+            })
+            return
+        end
+    end
+    WindUI:Notify({
+        Title = "Hop Server",
+        Content = "No available server found.",
+        Color = Color3.fromRGB(255, 0, 0) -- เนเธ”เธ
+    })
+end
+
+MiscTab:Button({
+    Title = "Hop Server",
+    Callback = function()
+        HopServer()
+    end
+})
+
+MiscTab:Button({
+    Title = "Rejoin Server",
+    Callback = function()
+        TeleportService:Teleport(placeId, player)
+        WindUI:Notify({
+            Title = "Rejoin Server",
+            Content = "Rejoining current server...",
+            Color = Color3.fromRGB(0, 162, 255)
+        })
+    end
+})
+
+-- Get Target Part
+local function GetTargetPart(character)
+    if not character then return nil end
+    return character:FindFirstChild(SelectedBodyPart) or character:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetClosestTarget()
+    local closest
+    local shortest = math.huge
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and not table.find(IgnoredPlayers, player.Name) then
+            local part = GetTargetPart(player.Character)
+            if part then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    if showFov then
+                        if dist < FOVCircle.Radius and dist < shortest then
+                            shortest = dist
+                            closest = player
+                        end
+                    else
+                        if dist < shortest then
+                            shortest = dist
+                            closest = player
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function IsShooting(args)
+
+    for i, v in pairs(args) do
+        if typeof(v) == "string" and v:lower():find("shoot") then
+            return true
+        elseif typeof(v) == "table" then
+            for _, t in pairs(v) do
+                if typeof(t) == "table" and t.Instance and t.Position then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- Hook Remote
+local send = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Send")
+local oldFire
+oldFire = hookfunction(send.FireServer, function(self, ...)
+    local args = {...}
+
+    if SilentAimEnabled and IsHoldingAllowedGun(args) then
+        if IsShooting(args) then
+            CurrentTarget = GetClosestTarget()
+            if CurrentTarget and CurrentTarget.Character then
+
+                local targetPart = CurrentTarget.Character:FindFirstChild(SelectedBodyPart) 
+                                    or CurrentTarget.Character:FindFirstChild("HumanoidRootPart")
+                local myHead = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+                
+                if targetPart and myHead then
+                    local predicted = PredictPosition(targetPart, EnableWallBang)
+
+                    if EnableWallBang then
+                        if args[5] and args[5][1] and args[5][1][1] then
+                            args[5][1][1].Instance = targetPart
+                            args[5][1][1].Position = predicted
+                        end
+                        args[4] = CFrame.new(math.huge, math.huge, math.huge)
+                    else
+                        if args[5] and args[5][1] and args[5][1][1] then
+                            args[5][1][1].Instance = targetPart
+                            args[5][1][1].Position = predicted
+                        end
+                    end
+
+                    SpawnDebugBullet(myHead.Position, predicted)
+                end
+            end
+        end
+    end
+
+    return oldFire(self, unpack(args))
+end)
+
+-- RenderStepped Update
+RunService.RenderStepped:Connect(function()
+    local closestTarget = SilentAimEnabled and GetClosestTarget() or nil
+
+    local viewportCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+    -- FOV Circle
+    if showFov then
+        FOVCircle.Position = viewportCenter
+        FOVCircle.Visible = true
+    else
+        FOVCircle.Visible = false
+    end
+
+    -- Tracer Line
+    if SilentAimEnabled and closestTarget and closestTarget.Character then
+        local humanoid = closestTarget.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.Health > 0 then
+            local myHead = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+            local aimPart = GetTargetPart(closestTarget.Character)
+            if myHead and aimPart then
+                local screenStart, onScreenStart = Camera:WorldToViewportPoint(myHead.Position)
+                local screenEnd, onScreenEnd = Camera:WorldToViewportPoint(aimPart.Position)
+                if onScreenStart and onScreenEnd then
+                    tracerLine.From = Vector2.new(screenStart.X, screenStart.Y)
+                    tracerLine.To = Vector2.new(screenEnd.X, screenEnd.Y)
+                    tracerLine.Thickness = 2
+                    tracerLine.Color = Color3.fromRGB(255,0,0)
+                    tracerLine.Visible = true
+                else
+                    tracerLine.Visible = false
+                end
+            else
+                tracerLine.Visible = false
+            end
+        else
+            tracerLine.Visible = false
+        end
+    else
+        tracerLine.Visible = false
+    end
+
+    -- Player ESP Update
+    for player, entry in pairs(ESPs) do
+        local box = entry.box
+        local char = entry.char
+        if not char then
+            for _, l in ipairs(box.Lines) do l.Visible = false end
+            if PlayerNameLabels[player] then PlayerNameLabels[player].Visible = false end
+            if PlayerHealthBars[player] then PlayerHealthBars[player].Visible = false end
+            continue
+        end
+
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not humanoid then
+            for _, l in ipairs(box.Lines) do l.Visible = false end
+            if PlayerNameLabels[player] then PlayerNameLabels[player].Visible = false end
+            if PlayerHealthBars[player] then PlayerHealthBars[player].Visible = false end
+            continue
+        end
+
+        local height = (humanoid.HipHeight * 2 + hrp.Size.Y)
+        local width  = (hrp.Size.X * 2) * 1.19
+        local depth  = (hrp.Size.Z * 2) * 1.15
+        local corners = {
+            Vector3.new(-width/2, -height/2, -depth/2),
+            Vector3.new(width/2, -height/2, -depth/2),
+            Vector3.new(width/2, -height/2, depth/2),
+            Vector3.new(-width/2, -height/2, depth/2),
+            Vector3.new(-width/2, height/2, -depth/2),
+            Vector3.new(width/2, height/2, -depth/2),
+            Vector3.new(width/2, height/2, depth/2),
+            Vector3.new(-width/2, height/2, depth/2)
+        }
+        local pts = {}
+        local any = false
+        for i, off in ipairs(corners) do
+            local wp = hrp.CFrame:PointToWorldSpace(off)
+            local s, onScreen = Camera:WorldToViewportPoint(wp)
+            pts[i] = Vector2.new(s.X, s.Y)
+            if onScreen then any = true end
+        end
+
+        local isTarget = (player == closestTarget)
+        local color = isTarget and Color3.fromRGB(255,0,0) or Color3.fromRGB(255,255,255)
+
+        -- Box
+        if ShowESP and any then
+            local L = box.Lines
+            for _, line in pairs(L) do line.Color = color end
+            L[1].From=pts[1]; L[1].To=pts[2]; L[1].Visible=true
+            L[2].From=pts[2]; L[2].To=pts[3]; L[2].Visible=true
+            L[3].From=pts[3]; L[3].To=pts[4]; L[3].Visible=true
+            L[4].From=pts[4]; L[4].To=pts[1]; L[4].Visible=true
+            L[5].From=pts[5]; L[5].To=pts[6]; L[5].Visible=true
+            L[6].From=pts[6]; L[6].To=pts[7]; L[6].Visible=true
+            L[7].From=pts[7]; L[7].To=pts[8]; L[7].Visible=true
+            L[8].From=pts[8]; L[8].To=pts[5]; L[8].Visible=true
+            L[9].From=pts[1]; L[9].To=pts[5]; L[9].Visible=true
+            L[10].From=pts[2]; L[10].To=pts[6]; L[10].Visible=true
+            L[11].From=pts[3]; L[11].To=pts[7]; L[11].Visible=true
+            L[12].From=pts[4]; L[12].To=pts[8]; L[12].Visible=true
+        else
+            for _, l in ipairs(box.Lines) do l.Visible=false end
+        end
+
+        local topMiddle = Vector2.new((pts[5].X + pts[6].X + pts[7].X + pts[8].X)/4,
+                                      (pts[5].Y + pts[6].Y + pts[7].Y + pts[8].Y)/4)
+
+        -- Health
+        if EspHealthEnabled and any then
+            local bar = PlayerHealthBars[player]
+            if not bar then
+                bar = Drawing.new("Square")
+                bar.Filled = true
+                bar.Thickness = 1
+                bar.Size = Vector2.new(30,4)
+                PlayerHealthBars[player] = bar
+            end
+            local healthRatio = math.clamp(humanoid.Health / humanoid.MaxHealth,0,1)
+            bar.Color = Color3.fromRGB(255*(1-healthRatio),255*healthRatio,0)
+            bar.Position = topMiddle + Vector2.new(-15, -10)
+            bar.Size = Vector2.new(30*healthRatio,4)
+            bar.Visible = true
+        elseif PlayerHealthBars[player] then
+            PlayerHealthBars[player].Visible = false
+        end
+
+        -- Name
+        if EspShowNameEnabled and any then
+            local label = PlayerNameLabels[player]
+            if not label then
+                label = Drawing.new("Text")
+                label.Center = true
+                label.Outline = true
+                label.Size = 12
+                PlayerNameLabels[player] = label
+            end
+            label.Text = player.Name
+            label.Position = topMiddle + Vector2.new(0, -20)
+            label.Color = color
+            label.Visible = true
+        elseif PlayerNameLabels[player] then
+            PlayerNameLabels[player].Visible = false
+        end
+    end
+
+    -- Dropped Items ESP Update
+    for _, data in pairs(ItemESPs) do
+        for _, hl in ipairs(data.highlights) do
+            if hl then
+                hl.Enabled = ShowItemESP
+            end
+        end
+    end
+end)
