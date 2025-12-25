@@ -131,3 +131,19 @@ CombatTab:Slider({
         FOVCircle.Radius = tonumber(value)
     end
 })
+
+CombatTab:Toggle({
+    Title = "Silent Aim",
+    Default = false,
+    Callback = function(v)
+        SilentAimEnabled = v
+    end
+})
+
+CombatTab:Toggle({
+    Title = "Super bullet",
+    Default = false,
+    Callback = function(v)
+        EnableSuperbullet = v
+    end
+})
