@@ -99,3 +99,31 @@ local EspTab = Window:Tab({Title = "Esp", Icon = "eye"})
 local CarTab = Window:Tab({Title = "Car", Icon = "car"})
 local MiscTab = Window:Tab({Title = "Misc", Icon = "hard-drive"})
 local SeverTab = Window:Tab({Title = "server", Icon = "server"})
+
+-- FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Radius = 150
+FOVCircle.Thickness = 0.5
+FOVCircle.Filled = false
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+FOVCircle.Visible = false
+local showFov = false
+
+CombatTab:Toggle({
+    Title = "Show Fov",
+    Default = false,
+    Callback = function(state)
+        showFov = state
+        FOVCircle.Visible = showFov
+    end
+})
+
+CombatTab:Slider({
+    Title = "FOV Size",
+    Step = 1,
+    Value = {Min = 50, Max = 800, Default = FOVCircle.Radius},
+    Callback = function(value)
+        FOVCircle.Radius = tonumber(value)
+    end
+})
