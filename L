@@ -404,3 +404,110 @@ MainTab:Toggle({
         end
     end
 })
+
+-- =========================
+-- Anti Kill Function
+-- =========================
+local EverDown = false
+local WasAntiLockEnabled = false
+local Settings = { AntiDied = false }
+
+func = {}
+
+func["AntiDied"] = function()
+    while task.wait(0.24) do
+        if Settings.AntiDied then
+            local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            local Humanoid = Character:FindFirstChild("Humanoid")
+            local RootPart = Character:FindFirstChild("HumanoidRootPart")
+            local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+            local hum = CharModule.get_hum()
+
+            if hum then
+                if hum:GetAttribute("HasBeenDowned") and not hum:GetAttribute("IsDead") and Humanoid.Health > 0 then
+                    -- ปิด Anti Lock ชั่วคราว
+                    if _G.AntiLock then
+                        WasAntiLockEnabled = true
+                        _G.AntiLock = false
+                        stopDanceAntiAim()
+                        WindUI:Notify({
+                            Title = "Anti System",
+                            Content = "Anti Lock disabled (Anti Kill active)",
+                            Duration = 2
+                        })
+                    end
+
+                    -- ตรวจสอบ DeathScreen
+                    local deathScreenExists = PlayerGui:FindFirstChild("DeathScreen")
+                    if deathScreenExists and not PlayerGui.DeathScreen.DeathScreenHolder.Visible then
+                        local Radius = 15
+                        local targetY = RootPart.Position.Y - Radius
+                        local currentY = RootPart.Position.Y
+                        local deltaY = targetY - currentY
+                        local Gan = math.random(-5, 15)
+
+                        RootPart.Anchored = false
+                        RootPart.CanCollide = false
+                        RootPart.CFrame = RootPart.CFrame * CFrame.new(Gan, deltaY, Gan)
+                        RootPart.Velocity = Vector3.new(RootPart.Velocity.X, -11, RootPart.Velocity.Z)
+
+                        for _, v in pairs(Character:GetChildren()) do
+                            if v:IsA("BasePart") then
+                                v.CanCollide = false
+                                v.Anchored = false
+                                v.CFrame = v.CFrame * CFrame.new(0, deltaY, 0)
+                                v.Velocity = Vector3.new(v.Velocity.X, -11, v.Velocity.Z)
+                            end
+                        end
+                        EverDown = true
+                    end
+                else
+                    if EverDown then
+                        local ganys = 15
+                        local targetY = RootPart.Position.Y - ganys
+                        local currentY = RootPart.Position.Y
+                        local deltaY = targetY - currentY
+                        RootPart.CFrame = RootPart.CFrame * CFrame.new(0, deltaY, 0)
+
+                        if not Client:GetAttribute("IsInCombat") then
+                            EverDown = false
+                            Net.send("request_respawn")
+
+                            -- เปิด Anti Lock กลับมา
+                            if WasAntiLockEnabled then
+                                _G.AntiLock = true
+                                playDanceAntiAim()
+                                WasAntiLockEnabled = false
+                                WindUI:Notify({
+                                    Title = "Anti System",
+                                    Content = "Anti Lock re-enabled",
+                                    Duration = 2
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+        else
+            EverDown = false
+            WasAntiLockEnabled = false
+        end
+    end
+end
+
+-- =========================
+-- UI Toggle สำหรับ Anti Kill
+-- =========================
+MainTab:Toggle({
+    Title = "Anti Kill",
+    Desc = "Normal Player cant Finish",
+    Flag = "antikill",
+    Type = "Checkbox",
+    Value = false,
+    Callback = function(state)
+        Settings.AntiDied = state
+        if state then
+            task.spawn(func["AntiDied"])
+        end
+    end
+})
