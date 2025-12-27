@@ -985,96 +985,73 @@ MainTab:Section(
     }
 )
 
+
 -- =========================
--- Snap / Adjustable Depth with Noclip
+-- Snap Underground System
 -- =========================
-local SnapEnabled = false
-local snapHigh = 10 -- ความลึกเริ่มต้น
-local LocalPlayer = game:GetService("Players").LocalPlayer
-local RunService = game:GetService("RunService")
-local NoclipParts = {}
+local EnabledSnapRunning = false
+local SnapThread = nil
+local YoffsetValue = 70
+local func = {}
 
-local function enableNoclip()
-    local char = LocalPlayer.Character
-    if not char then return end
-    NoclipParts = {}
-    for _, part in pairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-            table.insert(NoclipParts, part)
+func["EnabledSnap"] = function()
+    local basePosition = RootPart.Position
+    while EnabledSnapRunning do
+        task.wait()
+        if not EnabledSnapRunning then break end
+        local currentY = RootPart.Position.Y
+        local targetY = basePosition.Y - YoffsetValue
+        local deltaY = targetY - currentY
+        RootPart.CFrame = RootPart.CFrame * CFrame.new(0, deltaY, 0)
+    end
+end
+
+-- 🔘 Toggle & Keybind Sync System
+local function SetSnapState(value)
+    if EnabledSnapRunning == value then return end
+    EnabledSnapRunning = value
+    if value then
+        if not SnapThread then
+            SnapThread = task.spawn(func["EnabledSnap"])
         end
+    else
+        SnapThread = nil
+    end
+
+    if MainTab:Get("UndergroundToggle") then
+        MainTab:Get("UndergroundToggle"):SetValue(value)
     end
 end
 
-local function disableNoclip()
-    for _, part in pairs(NoclipParts) do
-        if part and part.Parent then
-            part.CanCollide = true
-        end
-    end
-    NoclipParts = {}
-end
-
-local SnapConnection
-
-local function EnableSnap()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChild("Humanoid")
-    if not hrp or not hum then return end
-
-    -- เปิด Noclip
-    enableNoclip()
-    hum.PlatformStand = false -- ยังให้เดินได้
-
-    SnapConnection = RunService.Heartbeat:Connect(function()
-        if SnapEnabled and hrp and hum and hum.Health > 0 then
-            hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - snapHigh, hrp.Position.Z)
-        end
-    end)
-end
-
-local function DisableSnap()
-    SnapEnabled = false
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then
-        hum.PlatformStand = false
-    end
-
-    -- ปิด Noclip
-    disableNoclip()
-
-    if SnapConnection then
-        SnapConnection:Disconnect()
-        SnapConnection = nil
-    end
-end
-
--- Toggle Snap
+-- 🧩 Toggle
 MainTab:Toggle({
     Title = "Snap",
-    Flag = "snapToggle",
-    Desc = "Toggle to sink underground with Noclip",
+    Icon = "check",
+    Type = "Checkbox",
     Value = false,
-    Callback = function(state)
-        SnapEnabled = state
-        if state then
-            EnableSnap()
-        else
-            DisableSnap()
-        end
+    Flag = "UndergroundToggle",
+    Callback = function(value)
+        SetSnapState(value)
     end
 })
 
--- Slider Snap High
+-- 🎹 Keybind
+MainTab:Keybind({
+    Title = "Snap Keybind",
+    Flag = "snap_keybind",
+    Value = "G",
+    Callback = function()
+        SetSnapState(not EnabledSnapRunning)
+    end
+})
+
+-- 📏 Slider Snap Height
 MainTab:Slider({
     Title = "Snap High",
-    Value = {Min = 1, Max = 50, Default = snapHigh},
+    Flag = "snap_height",
     Step = 1,
+    Value = { Min = 1, Max = 100, Default = YoffsetValue },
     Callback = function(value)
-        snapHigh = value
+        YoffsetValue = value
     end
 })
