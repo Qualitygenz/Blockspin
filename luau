@@ -896,61 +896,69 @@ MainTab:Toggle({
     end
 })
 
--- ฟังก์ชันหลัก Auto Pick (เพิ่มขยาย PickUpZone เท่านั้น)
-task.spawn(function()
-    while task.wait(0) do
-        if _G.AutoPickItems then
-            for _, v in pairs(dropfolder:GetChildren()) do
-                if v and not v:GetAttribute("Locked") then
 
-                    if not IsBlacklisted(v) then
-                        local zone = v:FindFirstChild("PickUpZone")
-                        if zone then
+-- ==============================
+-- Pickup Item (Toggle Version)
+-- ==============================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
-                            -- ⭐ เพิ่มแค่ขยาย hitbox ⭐
-                            zone.Size = Vector3.new(22, 22, 22)
-                            zone.CanCollide = false
+local LocalPlayer = Players.LocalPlayer
+local DroppedItems = workspace:WaitForChild("DroppedItems")
 
-                            local dist = GetDistanceFromRootPart(zone)
-                            if dist < math.huge then
-                                Net.get("pickup_dropped_item", v)
-                            end
-                        end
-                    else
-                    end
+local Character
+local HRP
 
-                end
+local PICKUP_DISTANCE = 350
+local TOUCH_REPEAT = 25
+local pickupEnabled = false
+
+-- Bind Character / HRP ใหม่ทุกครั้ง (กันตาย/รี)
+local function bindCharacter(char)
+    Character = char
+    HRP = char:WaitForChild("HumanoidRootPart", 5)
+end
+
+if LocalPlayer.Character then
+    bindCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(bindCharacter)
+
+-- Safe firetouch
+local function firetouch(partA, partB)
+    if not firetouchinterest or not partA or not partB then return end
+    for i = 1, TOUCH_REPEAT do
+        firetouchinterest(partA, partB, 0)
+        firetouchinterest(partA, partB, 1)
+    end
+end
+
+-- Main Loop
+RunService.RenderStepped:Connect(function()
+    if not pickupEnabled then return end
+    if not HRP or not HRP.Parent then return end
+
+    for _, item in ipairs(DroppedItems:GetChildren()) do
+        local zone = item:FindFirstChild("PickUpZone")
+        if zone and zone:IsA("BasePart") then
+            local dist = (HRP.Position - zone.Position).Magnitude
+            if dist <= PICKUP_DISTANCE then
+                firetouch(zone, HRP)
             end
         end
     end
 end)
 
--- ปุ่ม Toggle Auto Pick
+-- Toggle
 MainTab:Toggle({
-    Title = "Auto Pick Item",
-    Flag = "Pickitem",
-    Desc = "Pick up items that are far away",
-    Icon = "check",
-    Type = "Checkbox",
-    Value = false,
-    Callback = function(value)
-        _G.AutoPickItems = value
+    Title = "Pickup Item",
+    Default = false,
+    Callback = function(state)
+        pickupEnabled = state
     end
 })
 
--- 🔹 Dropdown เลือก Rarity ไม่เก็บ
-local rarities = {"Common", "Uncommon", "Rare", "Epic", "Legendary"}
-MainTab:Dropdown({
-    Title = "Blacklist Rarity",
-    Flag = "BlacklistRarity",
-    Values = rarities,
-    Default = {},
-    Multi = true,
-	AllowNone = true,
-    Callback = function(selected)
-        _G.BlacklistRarity = selected
-    end
-})
+
 
 local EnabledInfiniteStamina = false
 
