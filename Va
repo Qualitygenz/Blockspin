@@ -532,3 +532,42 @@ MainTab:Toggle({
         end
     end
 })
+
+ฟังก์ชันหลัก Auto Pick (เพิ่มขยาย PickUpZone เท่านั้น)
+task.spawn(function()
+    while task.wait(0) do
+        if _G.AutoPickItems then
+            for _, v in pairs(dropfolder:GetChildren()) do
+                if v and not v:GetAttribute("Locked") then
+
+                    if not IsBlacklisted(v) then
+                        local zone = v:FindFirstChild("PickUpZone")
+                        if zone then
+
+                            -- ⭐ เพิ่มแค่ขยาย hitbox ⭐
+                            zone.Size = Vector3.new(22, 22, 22)
+                            zone.CanCollide = false
+
+                            local dist = GetDistanceFromRootPart(zone)
+                            if dist < math.huge then
+                                Net.get("pickup_dropped_item", v)
+                            end
+                        end
+                    else
+                    end
+
+                end
+            end
+        end
+    end
+end)
+
+MainTab:Toggle({
+    Title = "Auto Pick Item",
+    Flag = "Pickitem",
+    Desc = "Pick up items",
+    Value = false,
+    Callback = function(value)
+        _G.AutoPickItems = value
+    end
+})
