@@ -533,18 +533,33 @@ MainTab:Toggle({
     end
 })
 
-ฟังก์ชันหลัก Auto Pick (เพิ่มขยาย PickUpZone เท่านั้น)
+-- กำหนดตัวแปรหลัก
+local dropfolder = workspace:WaitForChild("DroppedItems")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+
+-- ฟังก์ชันช่วยเหลือ
+local function IsBlacklisted(item)
+    return false
+end
+
+local function GetDistanceFromRootPart(part)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        return (part.Position - char.HumanoidRootPart.Position).Magnitude
+    end
+    return math.huge
+end
+
+-- Loop Auto Pick
 task.spawn(function()
-    while task.wait(0) do
+    while task.wait(0.1) do
         if _G.AutoPickItems then
             for _, v in pairs(dropfolder:GetChildren()) do
                 if v and not v:GetAttribute("Locked") then
-
                     if not IsBlacklisted(v) then
                         local zone = v:FindFirstChild("PickUpZone")
                         if zone then
-
-                            -- ⭐ เพิ่มแค่ขยาย hitbox ⭐
+                            -- ขยาย hitbox
                             zone.Size = Vector3.new(22, 22, 22)
                             zone.CanCollide = false
 
@@ -553,15 +568,14 @@ task.spawn(function()
                                 Net.get("pickup_dropped_item", v)
                             end
                         end
-                    else
                     end
-
                 end
             end
         end
     end
 end)
 
+-- Toggle UI
 MainTab:Toggle({
     Title = "Auto Pick Item",
     Flag = "Pickitem",
