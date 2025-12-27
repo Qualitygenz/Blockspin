@@ -2061,3 +2061,748 @@ CarTab:Toggle({
         end
     end
 })
+
+local item_drawings = {}
+local RunService = game:GetService("RunService")
+local CurrentCamera = workspace.CurrentCamera
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- เปิดใช้งานทันที
+local EnabledItemDrop = true
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DropItemViewerGui"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = PlayerGui
+
+-- หา Image / Model
+local function getItemImageId(itemName)
+	if itemName == "Money" then
+		local ok, model = pcall(function()
+			return LocalPlayer.PlayerGui.TopRightHud.Holder.Frame.Frame.MoneyViewport.MoneyModel
+		end)
+		if ok and model then
+			return model
+		end
+	end
+
+	local Items = ReplicatedStorage:FindFirstChild("Items")
+	if not Items then return nil end
+
+	for _, folder in ipairs(Items:GetChildren()) do
+		if folder:IsA("Folder") then
+			local itemData = folder:FindFirstChild(itemName)
+			if itemData then
+				for _, attr in ipairs({"ImageId","Image","Icon","TextureId","Texture"}) do
+					local v = itemData:GetAttribute(attr)
+					if v then return v end
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function formatImageId(imageId)
+	if not imageId or imageId == "" then return nil end
+	return imageId
+end
+
+RunService.RenderStepped:Connect(function()
+	if not EnabledItemDrop then return end
+
+	local Dropped = workspace:FindFirstChild("DroppedItems")
+	if not Dropped then return end
+
+	-- ลบ item ที่หาย
+	for item, d in pairs(item_drawings) do
+		if not item or not item.Parent then
+			if d.shadowFrame then d.shadowFrame:Destroy() end
+			if d.imageFrame then d.imageFrame:Destroy() end
+			if d.name then d.name:Destroy() end
+			if d.nameShadow then d.nameShadow:Destroy() end
+			if d.nameShadow2 then d.nameShadow2:Destroy() end
+			if d.dist then d.dist:Destroy() end
+			if d.distShadow then d.distShadow:Destroy() end
+			item_drawings[item] = nil
+		end
+	end
+
+	-- หา item ใกล้
+	local nearbyItems = {}
+	for _, item in ipairs(Dropped:GetChildren()) do
+		if item:IsA("Model") and item:FindFirstChild("PickUpZone") and not item:GetAttribute("Locked") then
+			local dist = (CurrentCamera.CFrame.Position - item.PickUpZone.Position).Magnitude
+			table.insert(nearbyItems, {item = item, dist = dist})
+		end
+	end
+
+	table.sort(nearbyItems, function(a,b)
+		return a.dist < b.dist
+	end)
+
+	local IMAGE_SIZE = 60
+
+	for i = 1, math.min(20, #nearbyItems) do
+		local item = nearbyItems[i].item
+		local d = item_drawings[item]
+
+		if not d then
+			d = {
+				nameShadow2 = Drawing.new("Text"), -- ฟ้าเข้ม
+				nameShadow = Drawing.new("Text"),  -- ฟ้าอ่อน
+				name = Drawing.new("Text"),        -- ขาว
+				distShadow = Drawing.new("Text"),
+				dist = Drawing.new("Text")
+			}
+
+			-- Shadow Frame
+			local sf = Instance.new("Frame")
+			sf.BackgroundColor3 = Color3.fromRGB(0,0,0)
+			sf.BackgroundTransparency = 0.5
+			sf.Size = UDim2.new(0, IMAGE_SIZE+8, 0, IMAGE_SIZE+8)
+			sf.AnchorPoint = Vector2.new(0.5,0.5)
+			sf.BorderSizePixel = 0
+			sf.Parent = screenGui
+			Instance.new("UICorner", sf).CornerRadius = UDim.new(0,10)
+			d.shadowFrame = sf
+
+			-- Image
+			local img = Instance.new("ImageLabel")
+			img.BackgroundTransparency = 1
+			img.Size = UDim2.new(0, IMAGE_SIZE, 0, IMAGE_SIZE)
+			img.AnchorPoint = Vector2.new(0.5,0.5)
+			img.ScaleType = Enum.ScaleType.Fit
+			img.Parent = screenGui
+
+			local raw = getItemImageId(item.Name)
+
+			if item.Name == "Money" and typeof(raw) == "Instance" then
+				img:Destroy()
+				local vp = Instance.new("ViewportFrame")
+				vp.BackgroundTransparency = 1
+				vp.Size = UDim2.new(0, IMAGE_SIZE, 0, IMAGE_SIZE)
+				vp.AnchorPoint = Vector2.new(0.5,0.5)
+				vp.Parent = screenGui
+
+				local clone = raw:Clone()
+				clone.Parent = vp
+
+				local cam = Instance.new("Camera")
+				cam.Parent = vp
+				vp.CurrentCamera = cam
+
+				local cf, size = clone:GetBoundingBox()
+				cam.CFrame = cf * CFrame.new(0,0,size.Z*1.5)
+				cam.Focus = cf
+
+				img = vp
+			else
+				local id = formatImageId(raw)
+				if id then img.Image = id end
+			end
+
+			d.imageFrame = img
+
+			-- ตั้งค่าฟอนต์
+			for _, t in ipairs({
+				d.name, d.nameShadow, d.nameShadow2,
+				d.dist, d.distShadow
+			}) do
+				t.Center = true
+				t.Font = 2
+				t.Outline = false
+			end
+
+			-- ชื่อ (ขาว + เงาฟ้า 2 ชั้น)
+			d.name.Size = 16
+			d.name.Color = Color3.new(1,1,1)
+
+			d.nameShadow.Size = 16
+			d.nameShadow.Color = Color3.fromRGB(120,200,255)
+			d.nameShadow.Transparency = 0.4
+
+			d.nameShadow2.Size = 16
+			d.nameShadow2.Color = Color3.fromRGB(60,150,255)
+			d.nameShadow2.Transparency = 0.6
+
+			-- จำนวน
+			d.dist.Size = 14
+			d.dist.Color = Color3.new(1,1,1)
+
+			d.distShadow.Size = 14
+			d.distShadow.Color = Color3.new(0,0,0)
+			d.distShadow.Transparency = 0.5
+
+			item_drawings[item] = d
+		end
+
+		local pos, onScreen = CurrentCamera:WorldToViewportPoint(item.PickUpZone.Position)
+		if onScreen then
+			local x, y = pos.X, pos.Y
+			local half = IMAGE_SIZE / 2
+
+			d.shadowFrame.Position = UDim2.fromOffset(x+3,y+3)
+			d.imageFrame.Position = UDim2.fromOffset(x,y)
+
+			local nameY = y - half - 25
+
+			-- เงาฟ้าเข้ม (หลังสุด)
+			d.nameShadow2.Text = item.Name
+			d.nameShadow2.Position = Vector2.new(x+3, nameY+3)
+			d.nameShadow2.Visible = true
+
+			-- เงาฟ้าอ่อน
+			d.nameShadow.Text = item.Name
+			d.nameShadow.Position = Vector2.new(x+1.5, nameY+1.5)
+			d.nameShadow.Visible = true
+
+			-- ตัวหลัก
+			d.name.Text = item.Name
+			d.name.Position = Vector2.new(x, nameY)
+			d.name.Visible = true
+
+			local amountGui = item:FindFirstChild("AmountBillboardGui")
+			local txt = amountGui and amountGui:FindFirstChild("TextLabel")
+			local amount = txt and txt.Text or "?"
+
+			local distY = y + half + 10
+
+			d.distShadow.Text = "[ "..amount.." ]"
+			d.distShadow.Position = Vector2.new(x+2, distY+2)
+			d.distShadow.Visible = true
+
+			d.dist.Text = "[ "..amount.." ]"
+			d.dist.Position = Vector2.new(x, distY)
+			d.dist.Visible = true
+		end
+	end
+end)
+
+local MiscTab =
+    Window:Tab(
+    {
+        Title = "Misc",
+        Icon = "circle-ellipsis"
+    }
+)
+
+local EnabledSkip = false
+
+-- ปุ่ม Toggle
+MiscTab:Toggle({
+    Title = "Skip Animation",
+    Flag = "skip_anim",
+    Value = false,
+    Callback = function(Value)
+        EnabledSkip = Value
+
+        -- ถ้าเปิดใช้งานทันที ให้ skip ทุก crate ที่กำลัง spin หรือจะ spin ใหม่
+        if EnabledSkip then
+            task.spawn(function()
+                while EnabledSkip do
+                    -- ตรวจสอบทุก crate ที่มีอยู่
+                    for _, crate in pairs(CrateController.class.objects) do
+                        -- ตั้งให้ skip 100%
+                        crate.states.open.set(true)       -- บังคับ crate เปิด
+                        CrateController.skipping.set(true) -- บังคับ skip
+                    end
+                    task.wait(0.05) -- เช็คต่อเนื่อง
+                end
+            end)
+        end
+    end
+})
+
+-- =========================
+-- Boost FPS (ภาพกาก)
+-- =========================
+
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Terrain = workspace:FindFirstChildOfClass("Terrain")
+
+local function Bootsfps()
+	-- ลบท้องฟ้า + เอฟเฟกต์
+	for _, v in ipairs(Lighting:GetChildren()) do
+		if v:IsA("Sky")
+		or v:IsA("Atmosphere")
+		or v:IsA("BloomEffect")
+		or v:IsA("SunRaysEffect")
+		or v:IsA("ColorCorrectionEffect")
+		or v:IsA("DepthOfFieldEffect") then
+			v:Destroy()
+		end
+	end
+
+	-- ปิดเงา / แสง
+	Lighting.GlobalShadows = false
+	Lighting.Brightness = 0
+	Lighting.FogEnd = 9e9
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
+
+	-- Terrain กาก
+	if Terrain then
+		Terrain.WaterWaveSize = 0
+		Terrain.WaterWaveSpeed = 0
+		Terrain.WaterReflectance = 0
+		Terrain.WaterTransparency = 1
+	end
+
+	-- ทำทั้งแมพเป็นสีเทา / plastic
+	for _, v in ipairs(workspace:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.Material = Enum.Material.Plastic
+			v.Reflectance = 0
+			v.CastShadow = false
+			v.Color = Color3.fromRGB(120,120,120)
+
+		elseif v:IsA("Decal") or v:IsA("Texture") then
+			v.Transparency = 1
+
+		elseif v:IsA("ParticleEmitter")
+		or v:IsA("Trail")
+		or v:IsA("Beam") then
+			v.Enabled = false
+		end
+	end
+end
+
+-- =========================
+-- Button ใน Tab Misc
+-- =========================
+
+MiscTab:Button({
+	Title = "Bootsfps",
+	Icon = "zap",
+	Callback = function()
+		Bootsfps()
+	end
+})
+
+-- =========================
+-- RTX ON ULTRA (ภาพโคตรสวย)
+-- =========================
+
+local Lighting = game:GetService("Lighting")
+local Terrain = workspace:FindFirstChildOfClass("Terrain")
+
+local function RTX_ON()
+	-- ล้างของเก่า
+	for _, v in ipairs(Lighting:GetChildren()) do
+		if v:IsA("Atmosphere")
+		or v:IsA("BloomEffect")
+		or v:IsA("SunRaysEffect")
+		or v:IsA("ColorCorrectionEffect")
+		or v:IsA("DepthOfFieldEffect")
+		or v:IsA("Sky") then
+			v:Destroy()
+		end
+	end
+
+	-- ===== Sky =====
+	local Sky = Instance.new("Sky")
+	Sky.SkyboxBk = "rbxassetid://159454299"
+	Sky.SkyboxDn = "rbxassetid://159454296"
+	Sky.SkyboxFt = "rbxassetid://159454293"
+	Sky.SkyboxLf = "rbxassetid://159454286"
+	Sky.SkyboxRt = "rbxassetid://159454300"
+	Sky.SkyboxUp = "rbxassetid://159454288"
+	Sky.SunAngularSize = 21
+	Sky.Parent = Lighting
+
+	-- ===== Lighting Core =====
+	Lighting.Technology = Enum.Technology.Future
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 1
+	Lighting.Brightness = 3
+	Lighting.ExposureCompensation = 0.25
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+	Lighting.ClockTime = 14
+
+	-- ===== Atmosphere =====
+	local Atmosphere = Instance.new("Atmosphere")
+	Atmosphere.Density = 0.35
+	Atmosphere.Offset = 0.25
+	Atmosphere.Color = Color3.fromRGB(190, 210, 255)
+	Atmosphere.Decay = Color3.fromRGB(120, 150, 200)
+	Atmosphere.Glare = 0.35
+	Atmosphere.Haze = 1.2
+	Atmosphere.Parent = Lighting
+
+	-- ===== Bloom =====
+	local Bloom = Instance.new("BloomEffect")
+	Bloom.Intensity = 1.2
+	Bloom.Size = 56
+	Bloom.Threshold = 0.85
+	Bloom.Parent = Lighting
+
+	-- ===== Sun Rays =====
+	local SunRays = Instance.new("SunRaysEffect")
+	SunRays.Intensity = 0.25
+	SunRays.Spread = 0.85
+	SunRays.Parent = Lighting
+
+	-- ===== Color Correction =====
+	local CC = Instance.new("ColorCorrectionEffect")
+	CC.Brightness = 0.05
+	CC.Contrast = 0.25
+	CC.Saturation = 0.35
+	CC.TintColor = Color3.fromRGB(255, 245, 235)
+	CC.Parent = Lighting
+
+	-- ===== Depth Of Field =====
+	local DOF = Instance.new("DepthOfFieldEffect")
+	DOF.FarIntensity = 0.25
+	DOF.NearIntensity = 0.05
+	DOF.FocusDistance = 60
+	DOF.InFocusRadius = 40
+	DOF.Parent = Lighting
+
+	-- ===== Terrain น้ำใส =====
+	if Terrain then
+		Terrain.WaterWaveSize = 1
+		Terrain.WaterWaveSpeed = 15
+		Terrain.WaterReflectance = 1
+		Terrain.WaterTransparency = 0.05
+	end
+
+	-- ===== วัสดุเงาสวย =====
+	for _, v in ipairs(workspace:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.CastShadow = true
+			if v.Material == Enum.Material.Plastic then
+				v.Material = Enum.Material.SmoothPlastic
+			end
+		end
+	end
+end
+
+-- =========================
+-- Button (Tab Misc)
+-- =========================
+
+MiscTab:Button({
+	Title = "RTX ON",
+	Icon = "sparkles",
+	Callback = function()
+		RTX_ON()
+	end
+})
+
+--====================================================
+-- 🌐 SERVER TAB
+--====================================================
+local ServerTab =
+    Window:Tab(
+    {
+        Title = "Server",
+        Icon = "server"
+    }
+)
+
+ServerTab:Section(
+    {
+        Title = "Server Information:"
+    }
+)
+
+-- ฟังก์ชันดึงรหัส Server
+local function GetJobID()
+    return game.JobId or "Unknown"
+end
+
+-- แสดง Server Code
+local ServerCodeLabel =
+    ServerTab:Code(
+    {
+        Title = "Current Server",
+        Code = " " .. GetJobID()
+    }
+)
+
+ServerTab:Divider()
+
+ServerTab:Section(
+    {
+        Title = "Server Utilities:"
+    }
+)
+
+-- ช่องกรอกโค้ด Server
+local ServerCode = ""
+
+ServerTab:Input(
+    {
+        Title = "Enter Server Code",
+        Placeholder = "Paste server JobId here...",
+        Callback = function(Value)
+            ServerCode = Value
+        end
+    }
+)
+
+-- ปุ่ม Join Server ด้วยโค้ด
+ServerTab:Button(
+    {
+        Title = "Join by Code",
+        Icon = "log-in",
+        Callback = function()
+            if ServerCode == "" then
+                warn("ใส่codeดิน้อง")
+                return
+            end
+            local TeleportService = game:GetService("TeleportService")
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, ServerCode, game.Players.LocalPlayer)
+        end
+    }
+)
+
+ServerTab:Button(
+    {
+        Title = "Rejoin Current Server",
+        Icon = "refresh-ccw",
+        Callback = function()
+            local TeleportService = game:GetService("TeleportService")
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+        end
+    }
+)
+
+ServerTab:Button(
+    {
+        Title = "Hop Server (Lowest Player)",
+        Icon = "shuffle",
+        Callback = function()
+            local HttpService = game:GetService("HttpService")
+            local TeleportService = game:GetService("TeleportService")
+            local servers = {}
+            local req =
+                game:HttpGet(
+                string.format(
+                    "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100",
+                    game.PlaceId
+                )
+            )
+            local data = HttpService:JSONDecode(req)
+            if data and data.data then
+                for _, v in pairs(data.data) do
+                    if v.playing < v.maxPlayers then
+                        table.insert(servers, v.id)
+                    end
+                end
+            end
+            if #servers > 0 then
+                TeleportService:TeleportToPlaceInstance(
+                    game.PlaceId,
+                    servers[math.random(1, #servers)],
+                    game.Players.LocalPlayer
+                )
+            end
+        end
+    }
+)
+
+local ConfigTab =
+    Window:Tab(
+    {
+        Title = "Config",
+        Icon = "settings"
+    }
+)
+
+ConfigTab:Section(
+    {
+        Title = "Config Manager:"
+    }
+)
+
+local ConfigManager = Window.ConfigManager
+local ConfigName = ""
+
+-- Input กรอกชื่อ Config
+ConfigTab:Input(
+    {
+        Title = "Config Name",
+        Placeholder = "Enter config name...",
+        Callback = function(value)
+            ConfigName = value
+        end
+    }
+)
+
+-- ปุ่ม Save
+ConfigTab:Button(
+    {
+        Title = "Save Config",
+        Icon = "save",
+        Callback = function()
+            if ConfigName ~= "" then
+                local config = ConfigManager:CreateConfig(ConfigName)
+                config:Save()
+                WindUI:Notify(
+                    {
+                        Title = "Config Manager",
+                        Content = "Saved: " .. ConfigName,
+                        Duration = 2
+                    }
+                )
+            else
+                WindUI:Notify(
+                    {
+                        Title = "Config Manager",
+                        Content = "Please enter config name!",
+                        Duration = 2
+                    }
+                )
+            end
+        end
+    }
+)
+
+-- ปุ่ม Load
+ConfigTab:Button(
+    {
+        Title = "Load Config",
+        Icon = "folder-open",
+        Callback = function()
+            if ConfigName ~= "" then
+                local config = ConfigManager:CreateConfig(ConfigName)
+                config:Load()
+                WindUI:Notify(
+                    {
+                        Title = "Config Manager",
+                        Content = "Loaded: " .. ConfigName,
+                        Duration = 2
+                    }
+                )
+            else
+                WindUI:Notify(
+                    {
+                        Title = "Config Manager",
+                        Content = "Please enter config name!",
+                        Duration = 2
+                    }
+                )
+            end
+        end
+    }
+)
+
+-- ปุ่ม Delete
+ConfigTab:Button(
+    {
+        Title = "Delete Config",
+        Icon = "trash-2",
+        Callback = function()
+            if ConfigName ~= "" then
+                local config = ConfigManager:CreateConfig(ConfigName)
+                config:Delete()
+                WindUI:Notify(
+                    {
+                        Title = "Config Manager",
+                        Content = "Deleted: " .. ConfigName,
+                        Duration = 2
+                    }
+                )
+            else
+                WindUI:Notify(
+                    {
+                        Title = "Config Manager",
+                        Content = "Please enter config name!",
+                        Duration = 2
+                    }
+                )
+            end
+        end
+    }
+)
+
+task.wait(0.1)
+local RS = game:GetService("ReplicatedStorage")
+
+pcall(function()
+    local BuyPromptUI = require(RS.Modules.Game.UI.BuyPromptUI)
+    
+    if BuyPromptUI.loaded then
+        local old_loaded = BuyPromptUI.loaded
+        
+        BuyPromptUI.loaded = function(...)
+            -- เรียกฟังก์ชันเดิม
+            local result = old_loaded(...)
+            
+            -- แก้เวลากดค้างหลังจาก UI โหลดเสร็จ
+            task.spawn(function()
+                task.wait(0.5) -- รอให้ UI setup เสร็จ
+                
+                local Util = require(RS.Modules.Core.Util)
+                local UI = require(RS.Modules.Core.UI)
+                local sellButton = UI.get("SellPromptSellButton")
+                
+                if sellButton and Util.tween then
+                    
+                    -- Hook ฟังก์ชัน tween ของ Util
+                    local old_tween = Util.tween
+                    Util.tween = function(instance, tweenInfo, properties, ...)
+                        -- ถ้าเป็น tween ของปุ่ม sell/drop และเป็นการเปลี่ยน Value
+                        if instance:IsA("NumberValue") and properties.Value == 1 then
+                            -- เปลี่ยน duration จาก 0.5-2 วิ เป็น 0.1 วิ
+                            if tweenInfo.Time > 0 then
+                                tweenInfo = TweenInfo.new(
+                                    0, -- เวลาใหม่
+                                    tweenInfo.EasingStyle,
+                                    tweenInfo.EasingDirection,
+                                    tweenInfo.RepeatCount,
+                                    tweenInfo.Reverses,
+                                    tweenInfo.DelayTime
+                                )
+                            end
+                        end
+                        
+                        return old_tween(instance, tweenInfo, properties, ...)
+                    end
+                    
+                end
+            end)
+            
+            return result
+        end
+        
+    end
+end)
+
+-- วิธีสำรอง: Hook tween โดยตรง
+pcall(function()
+    local Util = require(RS.Modules.Core.Util)
+    
+    if Util.tween then
+        local old_tween = Util.tween
+        
+        Util.tween = function(instance, tweenInfo, properties, ...)
+            -- ตรวจจับ tween ของปุ่ม sell (NumberValue.Value -> 1)
+            if instance:IsA("NumberValue") and properties.Value == 1 then
+                -- ถ้าเวลามากกว่า 0.1 วิ ให้ลดเหลือ 0.1 วิ
+                if tweenInfo.Time > 0.1 then
+                    tweenInfo = TweenInfo.new(
+                        0.1,
+                        tweenInfo.EasingStyle,
+                        tweenInfo.EasingDirection,
+                        tweenInfo.RepeatCount,
+                        tweenInfo.Reverses,
+                        tweenInfo.DelayTime
+                    )
+                end
+            end
+            
+            return old_tween(instance, tweenInfo, properties, ...)
+        end
+        
+    end
