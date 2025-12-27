@@ -986,50 +986,66 @@ MainTab:Section(
 )
 
 -- =========================
--- Snap / Sink (ค้างความลึก)
+-- Snap / Adjustable Depth
 -- =========================
 local SnapEnabled = false
 local snapHigh = 10 -- ความลึกเริ่มต้น
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local RunService = game:GetService("RunService")
 
-local targetCFrame = nil -- เก็บตำแหน่งค้าง
-
--- ฟังก์ชันจมลงและค้าง
-local function SinkPlayer()
+local function UpdateSnapPosition()
     local char = LocalPlayer.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local hum = char:FindFirstChild("Humanoid")
     if not hrp or not hum then return end
 
-    hum.PlatformStand = true
+    -- ปรับความลึกลงใต้ดินตาม snapHigh แต่ยังขยับไปด้านข้างได้
+    hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - snapHigh, hrp.Position.Z)
+end
+
+local SnapConnection
+
+local function EnableSnap()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+
+    -- ปรับ PlatformStand และ CanCollide ของตัวละคร
+    hum.PlatformStand = false -- ยังให้เดินได้
     for _, part in pairs(char:GetChildren()) do
         if part:IsA("BasePart") then
             part.CanCollide = false
         end
     end
 
-    -- คำนวณตำแหน่งค้าง
-    targetCFrame = hrp.CFrame * CFrame.new(0, -snapHigh, 0)
-
-    task.spawn(function()
-        while SnapEnabled and hrp and hum and hum.Health > 0 do
-            -- ปรับตำแหน่งตรง ๆ ตาม targetCFrame
-            hrp.CFrame = targetCFrame
-            RunService.Heartbeat:Wait()
-        end
-
-        -- ปิด Snap กลับขึ้น
-        if hrp and hum then
-            hum.PlatformStand = false
-            for _, part in pairs(char:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
-            end
+    -- Loop ปรับความลึก realtime
+    SnapConnection = RunService.Heartbeat:Connect(function()
+        if SnapEnabled and hrp and hum and hum.Health > 0 then
+            hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - snapHigh, hrp.Position.Z)
         end
     end)
+end
+
+local function DisableSnap()
+    SnapEnabled = false
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if hum then
+        hum.PlatformStand = false
+    end
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+        end
+    end
+    if SnapConnection then
+        SnapConnection:Disconnect()
+        SnapConnection = nil
+    end
 end
 
 -- Toggle Snap
@@ -1041,7 +1057,9 @@ MainTab:Toggle({
     Callback = function(state)
         SnapEnabled = state
         if state then
-            SinkPlayer()
+            EnableSnap()
+        else
+            DisableSnap()
         end
     end
 })
