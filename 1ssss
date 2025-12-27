@@ -1222,3 +1222,36 @@ do
 		end
 	})
 end
+
+--// ===== Get Player Names =====
+local function GetPlayerNames()
+	local t = {}
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer then
+			table.insert(t, plr.Name)
+		end
+	end
+	return t
+end
+
+--// ===== Save Friend Dropdown (SilentAim Ignore) =====
+CombatTab:Dropdown({
+	Title = "Save Friend",
+	Values = GetPlayerNames(),
+	Multi = true,
+	Default = {},
+	Callback = function(selected)
+		-- reset ทุกคนก่อน
+		for _, plr in pairs(Players:GetPlayers()) do
+			plr:SetAttribute("SilentAimIgnore", false)
+		end
+
+		-- ตั้งค่าเฉพาะชื่อที่เลือก
+		for _, name in pairs(selected) do
+			local plr = Players:FindFirstChild(name)
+			if plr then
+				plr:SetAttribute("SilentAimIgnore", true)
+			end
+		end
+	end
+})
