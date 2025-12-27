@@ -405,96 +405,130 @@ MainTab:Toggle({
     end
 })
 
--- =========================
--- Anti Kill / Auto Underground + Random Warp
--- =========================
-local Settings = { Antikill = false }
-local UndergroundActive = false
-local OriginalPosition = nil
-local NoclipParts = {}
+local player = Players.LocalPlayer
+local AntiKillEnabled = false
+local isAntiKill = false
+local depth = 3
+local fakeChar
 
-local function enableNoclip()
-    local char = LocalPlayer.Character
-    if not char then return end
-    NoclipParts = {}
+local function getCharData()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    local root = char:WaitForChild("HumanoidRootPart")
+    return char, hum, root
+end
+
+local function forceDownReal(root, hum, char)
+    local targetY = root.Position.Y - depth
+    root.CFrame = CFrame.new(root.Position.X, targetY, root.Position.Z)
+    root.Velocity = Vector3.zero
+    root.AssemblyLinearVelocity = Vector3.zero
+    hum.PlatformStand = true
     for _, part in pairs(char:GetChildren()) do
         if part:IsA("BasePart") then
             part.CanCollide = false
-            table.insert(NoclipParts, part)
         end
     end
 end
 
-local function disableNoclip()
-    for _, part in pairs(NoclipParts) do
-        if part and part.Parent then
-            part.CanCollide = true
-        end
-    end
-    NoclipParts = {}
+local function createFakeCharacter(root)
+    local dummy = Instance.new("Model")
+    dummy.Name = player.Name .. "_Fake"
+    local hrp = Instance.new("Part")
+    hrp.Name = "HumanoidRootPart"
+    hrp.Size = Vector3.new(2,2,1)
+    hrp.Anchored = true
+    hrp.CanCollide = true
+    hrp.Position = root.Position
+    hrp.Parent = dummy
+    local humanoid = Instance.new("Humanoid")
+    humanoid.Parent = dummy
+    dummy.Parent = workspace
+    return dummy
 end
 
-local function AutoUndergroundLoop()
-    while task.wait(0.2) do
-        if not Settings.Antikill then break end
-        local char = LocalPlayer.Character
-        if not char then continue end
-        local hum = char:FindFirstChild("Humanoid")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hum or not hrp then continue end
+local function startAntiKillLoop()
+    if isAntiKill then return end
+    isAntiKill = true
 
-        -- ลงใต้ดินเมื่อเลือด ≤ 18
-        if hum.Health <= 18 and not UndergroundActive then
-            UndergroundActive = true
-            OriginalPosition = hrp.Position
-            enableNoclip()
-            hrp.CFrame = hrp.CFrame + Vector3.new(0, -50, 0)
-            WindUI:Notify({
-                Title = "Anti Kill",
-                Content = "Going underground + NoClip enabled",
-                Duration = 2
-            })
+    local char, hum, root = getCharData()
+    fakeChar = createFakeCharacter(root)
+    local fakeRoot = fakeChar:FindFirstChild("HumanoidRootPart")
+
+    task.spawn(function()
+        while AntiKillEnabled and hum.Health > 0 and isAntiKill and hum.Health <= 21 do
+            forceDownReal(root, hum, char)
+
+            local power = 3
+            local dx = math.random(-power, power)
+            local dz = math.random(-power, power)
+            local spin = CFrame.Angles(0, math.rad(50), 0)
+            root.CFrame = (root.CFrame * spin) * CFrame.new(dx, 0, dz)
+
+            if fakeRoot then
+                fakeRoot.CFrame = root.CFrame + Vector3.new(0, depth, 0)
+            end
+
+            RunService.Heartbeat:Wait()
         end
 
-        -- ถ้า underground อยู่
-        if UndergroundActive then
-            -- สุ่มวาร์ปหน้า/หลัง ±10 เมตร ทุก 0.5 วินาที
-            local offsetX = math.random(-10, 10)
-            local offsetZ = math.random(-10, 10)
-            hrp.CFrame = hrp.CFrame + Vector3.new(offsetX, 0, offsetZ)
-            
-            -- รอครึ่งวินาทีระหว่าง warp
-            task.wait(0.5)
-
-            -- กลับขึ้นถ้าเลือด ≥ 30
-            if hum.Health >= 30 then
-                UndergroundActive = false
-                if OriginalPosition then
-                    hrp.CFrame = CFrame.new(OriginalPosition)
-                end
-                disableNoclip()
-                WindUI:Notify({
-                    Title = "Anti Kill",
-                    Content = "Back to surface + NoClip disabled",
-                    Duration = 2
-                })
+        if fakeChar then
+            fakeChar:Destroy()
+            fakeChar = nil
+        end
+        hum.PlatformStand = false
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
             end
         end
-    end
+        root.CFrame = root.CFrame + Vector3.new(0, depth + 2, 0)
+        isAntiKill = false
+    end)
 end
 
--- =========================
--- UI Toggle สำหรับ Anti Kill
--- =========================
+local function connectAntiKill(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.HealthChanged:Connect(function(hp)
+        if AntiKillEnabled then
+            if hp <= 21 and not isAntiKill then
+                startAntiKillLoop()
+            elseif hp >= 31 and isAntiKill then
+                local char, hum, root = getCharData()
+                if fakeChar then
+                    fakeChar:Destroy()
+                    fakeChar = nil
+                end
+                hum.PlatformStand = false
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+                root.CFrame = root.CFrame + Vector3.new(0, depth + 2, 0)
+                isAntiKill = false
+            end
+        end
+    end)
+end
+
+if player.Character then
+    connectAntiKill(player.Character)
+end
+
+player.CharacterAdded:Connect(connectAntiKill)
+
 MainTab:Toggle({
-    Title = "Anti Kill",
-    Flag = "antikill",
-    Type = "Checkbox",
-    Value = false,
+    Title = "Enable AntiKill",
+    Default = false,
     Callback = function(state)
-        Settings.Antikill = state
-        if state then
-            task.spawn(AutoUndergroundLoop)
+        AntiKillEnabled = state
+
+        if AntiKillEnabled and player.Character then
+            local hum = player.Character:FindFirstChild("Humanoid")
+            if hum and hum.Health <= 21 and not isAntiKill then
+                startAntiKillLoop()
+            end
         end
     end
 })
