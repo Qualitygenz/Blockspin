@@ -1066,3 +1066,159 @@ local CombatTab =
     }
 )
 
+local SilentAimEnabled = true      -- เปิดตลอด
+local TracerEnabled   = true       -- เปิดตลอด
+local ShowFOV         = false       -- คุมด้วย UI
+local FOV             = 150        -- คุมด้วย Slider
+
+--// ================= GUN LIST (ลิสต์ล้วน) =================
+local GunNames = {
+	"P226","MP5","M24","Draco","Glock","Sawnoff","Uzi","G3","C9",
+	"Hunting Rifle","Anaconda","AK47","Remington","Double Barrel"
+}
+
+--// ================= FOV CIRCLE =================
+local fovCircle = Drawing.new("Circle")
+fovCircle.Color = Color3.fromRGB(255,255,255)
+fovCircle.Thickness = 2
+fovCircle.NumSides = 100
+fovCircle.Filled = false
+fovCircle.Visible = ShowFOV
+fovCircle.Radius = FOV
+
+--// ================= TRACER =================
+local tracerLine = Drawing.new("Line")
+tracerLine.Color = Color3.fromRGB(255,0,0)
+tracerLine.Thickness = 2
+tracerLine.Visible = false
+
+--// ================= TARGET FINDER =================
+local function GetClosestTarget()
+	local closest, shortest = nil, math.huge
+	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer
+			and not plr:GetAttribute("SilentAimIgnore")
+			and plr.Character
+			and plr.Character:FindFirstChild("Head") then
+
+			local pos, onScreen = Camera:WorldToViewportPoint(plr.Character.Head.Position)
+			if onScreen then
+				local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+				if dist < FOV and dist < shortest then
+					shortest = dist
+					closest = plr
+				end
+			end
+		end
+	end
+
+	return closest
+end
+
+--// ================= GUN CHECK =================
+local function IsHoldingAllowedGun(args)
+	-- เช็คจาก remote args ก่อน
+	local ok, weapon = pcall(function()
+		return args[3]
+	end)
+
+	if ok and typeof(weapon) == "Instance" and weapon.Name
+		and table.find(GunNames, weapon.Name) then
+		return true
+	end
+
+	-- เช็คจากตัวละคร
+	if LocalPlayer.Character then
+		for _, v in pairs(LocalPlayer.Character:GetChildren()) do
+			if (v:IsA("Tool") or v:IsA("Model"))
+				and v.Name
+				and table.find(GunNames, v.Name) then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+--// ================= HOOK REMOTE =================
+local send = ReplicatedStorage.Remotes.Send
+local oldFire
+oldFire = hookfunction(send.FireServer, function(self, ...)
+	local args = {...}
+
+	if SilentAimEnabled and IsHoldingAllowedGun(args) then
+		local target = GetClosestTarget()
+		if target and target.Character and target.Character:FindFirstChild("Head") then
+			local head = target.Character.Head
+			args[4] = CFrame.new(math.huge, math.huge, math.huge)
+			args[5] = {
+				[1] = {
+					[1] = {
+						Instance = head,
+						Position = head.Position
+					}
+				}
+			}
+		end
+	end
+
+	return oldFire(self, unpack(args))
+end)
+
+--// ================= RENDER LOOP =================
+RunService.RenderStepped:Connect(function()
+	fovCircle.Position = Vector2.new(
+		Camera.ViewportSize.X/2,
+		Camera.ViewportSize.Y/2
+	)
+	fovCircle.Radius = FOV
+	fovCircle.Visible = ShowFOV
+
+	local target = GetClosestTarget()
+	if TracerEnabled
+		and target
+		and target.Character
+		and target.Character:FindFirstChild("Head")
+		and LocalPlayer.Character
+		and LocalPlayer.Character:FindFirstChild("Head") then
+
+		local tPos, tOn = Camera:WorldToViewportPoint(target.Character.Head.Position)
+		local mPos, mOn = Camera:WorldToViewportPoint(LocalPlayer.Character.Head.Position)
+
+		if tOn and mOn then
+			tracerLine.From = Vector2.new(mPos.X, mPos.Y)
+			tracerLine.To   = Vector2.new(tPos.X, tPos.Y)
+			tracerLine.Visible = true
+			return
+		end
+	end
+
+	tracerLine.Visible = false
+end)
+
+--// ================= UI (เฉพาะ Show FOV + Slider) =================
+do
+	CombatTab:Toggle({
+		Title = "Show FOV",
+		Default = ShowFOV,
+		Callback = function(v)
+			ShowFOV = v
+		end
+	})
+
+	CombatTab:Slider({
+		Title = "FOV Size",
+		Step = 1,
+		Value = {
+			Min = 50,
+			Max = 500,
+			Default = FOV
+		},
+		Callback = function(v)
+			FOV = v
+		end
+	})
+end
