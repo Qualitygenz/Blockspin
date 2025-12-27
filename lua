@@ -2506,3 +2506,113 @@ MiscTab:Button({
 	end
 })
 
+local ServerTab =
+    Window:Tab(
+    {
+        Title = "Server",
+        Icon = "server"
+    }
+)
+
+ServerTab:Section(
+    {
+        Title = "Server Information:"
+    }
+)
+
+-- ฟังก์ชันดึงรหัส Server
+local function GetJobID()
+    return game.JobId or "Unknown"
+end
+
+-- แสดง Server Code
+local ServerCodeLabel =
+    ServerTab:Code(
+    {
+        Title = "Current Server",
+        Code = " " .. GetJobID()
+    }
+)
+
+ServerTab:Divider()
+
+ServerTab:Section(
+    {
+        Title = "Server Utilities:"
+    }
+)
+
+-- ช่องกรอกโค้ด Server
+local ServerCode = ""
+
+ServerTab:Input(
+    {
+        Title = "Enter Server Code",
+        Placeholder = "Paste server JobId here...",
+        Callback = function(Value)
+            ServerCode = Value
+        end
+    }
+)
+
+-- ปุ่ม Join Server ด้วยโค้ด
+ServerTab:Button(
+    {
+        Title = "Join Code",
+        Icon = "log-in",
+        Callback = function()
+            if ServerCode == "" then
+                warn("ใส่codeดิน้อง")
+                return
+            end
+            local TeleportService = game:GetService("TeleportService")
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, ServerCode, game.Players.LocalPlayer)
+        end
+    }
+)
+
+ServerTab:Button(
+    {
+        Title = "Rejoin",
+        Icon = "refresh-ccw",
+        Callback = function()
+            local TeleportService = game:GetService("TeleportService")
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+        end
+    }
+)
+
+ServerTab:Button(
+    {
+        Title = "Hop Server (Low Player)​",
+        Icon = "shuffle",
+        Callback = function()
+            local HttpService = game:GetService("HttpService")
+            local TeleportService = game:GetService("TeleportService")
+            local servers = {}
+            local req =
+                game:HttpGet(
+                string.format(
+                    "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100",
+                    game.PlaceId
+                )
+            )
+            local data = HttpService:JSONDecode(req)
+            if data and data.data then
+                for _, v in pairs(data.data) do
+                    if v.playing < v.maxPlayers then
+                        table.insert(servers, v.id)
+                    end
+                end
+            end
+            if #servers > 0 then
+                TeleportService:TeleportToPlaceInstance(
+                    game.PlaceId,
+                    servers[math.random(1, #servers)],
+                    game.Players.LocalPlayer
+                )
+            end
+        end
+    }
+)
+
