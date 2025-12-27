@@ -1255,3 +1255,189 @@ CombatTab:Dropdown({
 		end
 	end
 })
+
+local EspTab =
+    Window:Tab(
+    {
+        Title = "Esp",
+        Icon = "eye"
+    }
+)
+
+
+--====================================================
+-- ESP PLAYER (SEPARATE TOGGLES)
+--====================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local ESP_Name = false
+local ESP_Health = false
+local ESP_Distance = false
+local ESP_Highlight = false
+
+local TEXT_SIZE = 12
+
+local ESP_FOLDER = Instance.new("Folder")
+ESP_FOLDER.Name = "ESP_FOLDER"
+ESP_FOLDER.Parent = CoreGui
+
+-- ======================
+-- Health Color
+-- ======================
+local function getHealthColor(hp)
+    if hp >= 100 then
+        return Color3.fromRGB(0,255,0)
+    elseif hp >= 50 then
+        return Color3.fromRGB(255,255,0)
+    else
+        return Color3.fromRGB(255,0,0)
+    end
+end
+
+-- ======================
+-- Create ESP
+-- ======================
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    local function onCharacter(char)
+        local hum = char:WaitForChild("Humanoid",5)
+        local root = char:WaitForChild("HumanoidRootPart",5)
+        local head = char:WaitForChild("Head",5)
+        if not hum or not root or not head then return end
+
+        -- Highlight
+        local hl = Instance.new("Highlight")
+        hl.Adornee = char
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+        hl.Enabled = false
+        hl.Parent = ESP_FOLDER
+
+        -- Name + HP
+        local nameGui = Instance.new("BillboardGui")
+        nameGui.Adornee = head
+        nameGui.Size = UDim2.new(0,200,0,45)
+        nameGui.StudsOffset = Vector3.new(0,2.5,0)
+        nameGui.AlwaysOnTop = true
+        nameGui.Parent = ESP_FOLDER
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1,0,0,20)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = player.Name
+        nameLabel.TextSize = TEXT_SIZE
+        nameLabel.Font = Enum.Font.SourceSansBold
+        nameLabel.TextStrokeTransparency = 0
+        nameLabel.Parent = nameGui
+
+        local hpLabel = Instance.new("TextLabel")
+        hpLabel.Position = UDim2.new(0,0,0,20)
+        hpLabel.Size = UDim2.new(1,0,0,20)
+        hpLabel.BackgroundTransparency = 1
+        hpLabel.TextSize = TEXT_SIZE
+        hpLabel.Font = Enum.Font.SourceSans
+        hpLabel.TextStrokeTransparency = 0
+        hpLabel.Parent = nameGui
+
+        -- Distance
+        local distGui = Instance.new("BillboardGui")
+        distGui.Adornee = root
+        distGui.Size = UDim2.new(0,200,0,20)
+        distGui.StudsOffset = Vector3.new(0,-3,0)
+        distGui.AlwaysOnTop = true
+        distGui.Parent = ESP_FOLDER
+
+        local distLabel = Instance.new("TextLabel")
+        distLabel.Size = UDim2.new(1,0,1,0)
+        distLabel.BackgroundTransparency = 1
+        distLabel.TextSize = TEXT_SIZE
+        distLabel.Font = Enum.Font.SourceSans
+        distLabel.TextStrokeTransparency = 0
+        distLabel.TextColor3 = Color3.new(1,1,1)
+        distLabel.Parent = distGui
+
+        -- Update Loop
+        RunService.RenderStepped:Connect(function()
+            if not char.Parent or hum.Health <= 0 then
+                nameGui:Destroy()
+                distGui:Destroy()
+                hl:Destroy()
+                return
+            end
+
+            local hp = math.floor(hum.Health)
+            local color = getHealthColor(hp)
+
+            -- Name
+            nameLabel.Visible = ESP_Name
+            nameLabel.TextColor3 = color
+
+            -- Health
+            hpLabel.Visible = ESP_Health
+            hpLabel.Text = "HP: "..hp
+            hpLabel.TextColor3 = color
+
+            -- Distance
+            distGui.Enabled = ESP_Distance
+            if ESP_Distance and LocalPlayer.Character then
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                distLabel.Text = math.floor(dist).." m"
+            end
+
+            -- Highlight
+            hl.Enabled = ESP_Highlight
+            hl.FillColor = color
+            hl.OutlineColor = color
+        end)
+    end
+
+    if player.Character then
+        onCharacter(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacter)
+end
+
+for _,plr in ipairs(Players:GetPlayers()) do
+    createESP(plr)
+end
+Players.PlayerAdded:Connect(createESP)
+
+--====================================================
+-- UI TOGGLES
+--====================================================
+EspTab:Toggle({
+    Title = "ESP Name",
+    Value = false,
+    Callback = function(v)
+        ESP_Name = v
+    end
+})
+
+EspTab:Toggle({
+    Title = "ESP Health",
+    Value = false,
+    Callback = function(v)
+        ESP_Health = v
+    end
+})
+
+EspTab:Toggle({
+    Title = "ESP Distance",
+    Value = false,
+    Callback = function(v)
+        ESP_Distance = v
+    end
+})
+
+EspTab:Toggle({
+    Title = "ESP Highlight",
+    Value = false,
+    Callback = function(v)
+        ESP_Highlight = v
+    end
+})
