@@ -1057,3 +1057,12 @@ MainTab:Slider({
         YoffsetValue = value
     end
 })
+
+local CombatTab =
+    Window:Tab(
+    {
+        Title = "Combat",
+        Icon = "swords"
+    }
+)
+
