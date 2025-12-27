@@ -986,22 +986,33 @@ MainTab:Section(
 )
 
 -- =========================
--- Snap / Adjustable Depth
+-- Snap / Adjustable Depth with Noclip
 -- =========================
 local SnapEnabled = false
 local snapHigh = 10 -- ความลึกเริ่มต้น
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local RunService = game:GetService("RunService")
+local NoclipParts = {}
 
-local function UpdateSnapPosition()
+local function enableNoclip()
     local char = LocalPlayer.Character
     if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChild("Humanoid")
-    if not hrp or not hum then return end
+    NoclipParts = {}
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            table.insert(NoclipParts, part)
+        end
+    end
+end
 
-    -- ปรับความลึกลงใต้ดินตาม snapHigh แต่ยังขยับไปด้านข้างได้
-    hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - snapHigh, hrp.Position.Z)
+local function disableNoclip()
+    for _, part in pairs(NoclipParts) do
+        if part and part.Parent then
+            part.CanCollide = true
+        end
+    end
+    NoclipParts = {}
 end
 
 local SnapConnection
@@ -1013,15 +1024,10 @@ local function EnableSnap()
     local hum = char:FindFirstChild("Humanoid")
     if not hrp or not hum then return end
 
-    -- ปรับ PlatformStand และ CanCollide ของตัวละคร
+    -- เปิด Noclip
+    enableNoclip()
     hum.PlatformStand = false -- ยังให้เดินได้
-    for _, part in pairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
 
-    -- Loop ปรับความลึก realtime
     SnapConnection = RunService.Heartbeat:Connect(function()
         if SnapEnabled and hrp and hum and hum.Health > 0 then
             hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - snapHigh, hrp.Position.Z)
@@ -1037,11 +1043,10 @@ local function DisableSnap()
     if hum then
         hum.PlatformStand = false
     end
-    for _, part in pairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = true
-        end
-    end
+
+    -- ปิด Noclip
+    disableNoclip()
+
     if SnapConnection then
         SnapConnection:Disconnect()
         SnapConnection = nil
@@ -1052,7 +1057,7 @@ end
 MainTab:Toggle({
     Title = "Snap",
     Flag = "snapToggle",
-    Desc = "Toggle to sink underground",
+    Desc = "Toggle to sink underground with Noclip",
     Value = false,
     Callback = function(state)
         SnapEnabled = state
