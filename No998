@@ -533,55 +533,42 @@ MainTab:Toggle({
     end
 })
 
--- กำหนดตัวแปรหลัก
-local dropfolder = workspace:WaitForChild("DroppedItems")
-local LocalPlayer = game:GetService("Players").LocalPlayer
+-- Pickup Itemlocal Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
--- ฟังก์ชันช่วยเหลือ
-local function IsBlacklisted(item)
-    return false
-end
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
 
-local function GetDistanceFromRootPart(part)
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        return (part.Position - char.HumanoidRootPart.Position).Magnitude
+local PICKUP_DISTANCE = 350
+local TOUCH_REPEAT = 25
+
+local pickupEnabled = false
+
+local function firetouch(partA, partB)
+    for i = 1, TOUCH_REPEAT do
+        firetouchinterest(partA, partB, 0)
+        firetouchinterest(partA, partB, 1)
     end
-    return math.huge
 end
 
--- Loop Auto Pick
-task.spawn(function()
-    while task.wait(0.1) do
-        if _G.AutoPickItems then
-            for _, v in pairs(dropfolder:GetChildren()) do
-                if v and not v:GetAttribute("Locked") then
-                    if not IsBlacklisted(v) then
-                        local zone = v:FindFirstChild("PickUpZone")
-                        if zone then
-                            -- ขยาย hitbox
-                            zone.Size = Vector3.new(22, 22, 22)
-                            zone.CanCollide = false
-
-                            local dist = GetDistanceFromRootPart(zone)
-                            if dist < math.huge then
-                                Net.get("pickup_dropped_item", v)
-                            end
-                        end
-                    end
+RunService.RenderStepped:Connect(function()
+    if pickupEnabled then
+        for _, item in pairs(workspace.DroppedItems:GetChildren()) do
+            local zone = item:FindFirstChild("PickUpZone")
+            if zone and zone:IsA("BasePart") then
+                local dist = (HRP.Position - zone.Position).Magnitude
+                if dist <= PICKUP_DISTANCE then
+                    firetouch(zone, HRP)
                 end
             end
         end
     end
 end)
-
--- Toggle UI
-MainTab:Toggle({
-    Title = "Auto Pick Item",
-    Flag = "Pickitem",
-    Desc = "Pick up items",
-    Value = false,
-    Callback = function(value)
-        _G.AutoPickItems = value
+PlayerTab:Toggle({
+    Title = "Pickup Item",
+    Default = false,
+    Callback = function(state)
+        pickupEnabled = state
     end
 })
