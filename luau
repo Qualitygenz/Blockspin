@@ -2078,219 +2078,63 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- เปิดใช้งานทันที
-local EnabledItemDrop = true
 
--- ScreenGui
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DropItemViewerGui"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.Parent = PlayerGui
+-- Dropped Items ESP (Always ON)
 
--- หา Image / Model
-local function getItemImageId(itemName)
-	if itemName == "Money" then
-		local ok, model = pcall(function()
-			return LocalPlayer.PlayerGui.TopRightHud.Holder.Frame.Frame.MoneyViewport.MoneyModel
-		end)
-		if ok and model then
-			return model
-		end
-	end
+local ItemESPs = {}
+local ShowItemESP = true -- เปิดตลอดตั้งแต่รัน
 
-	local Items = ReplicatedStorage:FindFirstChild("Items")
-	if not Items then return nil end
+local BlueColor = Color3.fromRGB(0, 150, 255)
+local GreenColor = Color3.fromRGB(0, 255, 0)
 
-	for _, folder in ipairs(Items:GetChildren()) do
-		if folder:IsA("Folder") then
-			local itemData = folder:FindFirstChild(itemName)
-			if itemData then
-				for _, attr in ipairs({"ImageId","Image","Icon","TextureId","Texture"}) do
-					local v = itemData:GetAttribute(attr)
-					if v then return v end
-				end
-			end
-		end
-	end
-	return nil
+local function getItemColor(item)
+    if item.Name:lower():find("money") then
+        return GreenColor
+    else
+        return BlueColor
+    end
 end
 
-local function formatImageId(imageId)
-	if not imageId or imageId == "" then return nil end
-	return imageId
+local function createItemESP(item)
+    if ItemESPs[item] then return end
+    local color = getItemColor(item)
+    local highlights = {}
+
+    -- Highlight
+    if item:IsA("BasePart") then
+        local hl = Instance.new("Highlight")
+        hl.Adornee = item
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.FillTransparency = 0.7
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Enabled = true
+        hl.Parent = item
+        table.insert(highlights, hl)
+
+    elseif item:IsA("Model") then
+        for _, part in ipairs(item:GetDescendants()) do
+            if part:IsA("BasePart") then
+                local hl = Instance.new("Highlight")
+                hl.Adornee = part
+                hl.FillColor = color
+                hl.OutlineColor = color
+                hl.FillTransparency = 0.7
+                hl.OutlineTransparency = 0
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Enabled = true
+                hl.Parent = part
+                table.insert(highlights, hl)
+            end
+        end
+    end
+
+    ItemESPs[item] = {
+        highlights = highlights,
+        label = nil
+    }
 end
-
-RunService.RenderStepped:Connect(function()
-	if not EnabledItemDrop then return end
-
-	local Dropped = workspace:FindFirstChild("DroppedItems")
-	if not Dropped then return end
-
-	-- ลบ item ที่หาย
-	for item, d in pairs(item_drawings) do
-		if not item or not item.Parent then
-			if d.shadowFrame then d.shadowFrame:Destroy() end
-			if d.imageFrame then d.imageFrame:Destroy() end
-			if d.name then d.name:Destroy() end
-			if d.nameShadow then d.nameShadow:Destroy() end
-			if d.nameShadow2 then d.nameShadow2:Destroy() end
-			if d.dist then d.dist:Destroy() end
-			if d.distShadow then d.distShadow:Destroy() end
-			item_drawings[item] = nil
-		end
-	end
-
-	-- หา item ใกล้
-	local nearbyItems = {}
-	for _, item in ipairs(Dropped:GetChildren()) do
-		if item:IsA("Model") and item:FindFirstChild("PickUpZone") and not item:GetAttribute("Locked") then
-			local dist = (CurrentCamera.CFrame.Position - item.PickUpZone.Position).Magnitude
-			table.insert(nearbyItems, {item = item, dist = dist})
-		end
-	end
-
-	table.sort(nearbyItems, function(a,b)
-		return a.dist < b.dist
-	end)
-
-	local IMAGE_SIZE = 60
-
-	for i = 1, math.min(20, #nearbyItems) do
-		local item = nearbyItems[i].item
-		local d = item_drawings[item]
-
-		if not d then
-			d = {
-				nameShadow2 = Drawing.new("Text"), -- ฟ้าเข้ม
-				nameShadow = Drawing.new("Text"),  -- ฟ้าอ่อน
-				name = Drawing.new("Text"),        -- ขาว
-				distShadow = Drawing.new("Text"),
-				dist = Drawing.new("Text")
-			}
-
-			-- Shadow Frame
-			local sf = Instance.new("Frame")
-			sf.BackgroundColor3 = Color3.fromRGB(0,0,0)
-			sf.BackgroundTransparency = 0.5
-			sf.Size = UDim2.new(0, IMAGE_SIZE+8, 0, IMAGE_SIZE+8)
-			sf.AnchorPoint = Vector2.new(0.5,0.5)
-			sf.BorderSizePixel = 0
-			sf.Parent = screenGui
-			Instance.new("UICorner", sf).CornerRadius = UDim.new(0,10)
-			d.shadowFrame = sf
-
-			-- Image
-			local img = Instance.new("ImageLabel")
-			img.BackgroundTransparency = 1
-			img.Size = UDim2.new(0, IMAGE_SIZE, 0, IMAGE_SIZE)
-			img.AnchorPoint = Vector2.new(0.5,0.5)
-			img.ScaleType = Enum.ScaleType.Fit
-			img.Parent = screenGui
-
-			local raw = getItemImageId(item.Name)
-
-			if item.Name == "Money" and typeof(raw) == "Instance" then
-				img:Destroy()
-				local vp = Instance.new("ViewportFrame")
-				vp.BackgroundTransparency = 1
-				vp.Size = UDim2.new(0, IMAGE_SIZE, 0, IMAGE_SIZE)
-				vp.AnchorPoint = Vector2.new(0.5,0.5)
-				vp.Parent = screenGui
-
-				local clone = raw:Clone()
-				clone.Parent = vp
-
-				local cam = Instance.new("Camera")
-				cam.Parent = vp
-				vp.CurrentCamera = cam
-
-				local cf, size = clone:GetBoundingBox()
-				cam.CFrame = cf * CFrame.new(0,0,size.Z*1.5)
-				cam.Focus = cf
-
-				img = vp
-			else
-				local id = formatImageId(raw)
-				if id then img.Image = id end
-			end
-
-			d.imageFrame = img
-
-			-- ตั้งค่าฟอนต์
-			for _, t in ipairs({
-				d.name, d.nameShadow, d.nameShadow2,
-				d.dist, d.distShadow
-			}) do
-				t.Center = true
-				t.Font = 2
-				t.Outline = false
-			end
-
-			-- ชื่อ (ขาว + เงาฟ้า 2 ชั้น)
-			d.name.Size = 16
-			d.name.Color = Color3.new(1,1,1)
-
-			d.nameShadow.Size = 16
-			d.nameShadow.Color = Color3.fromRGB(120,200,255)
-			d.nameShadow.Transparency = 0.4
-
-			d.nameShadow2.Size = 16
-			d.nameShadow2.Color = Color3.fromRGB(60,150,255)
-			d.nameShadow2.Transparency = 0.6
-
-			-- จำนวน
-			d.dist.Size = 14
-			d.dist.Color = Color3.new(1,1,1)
-
-			d.distShadow.Size = 14
-			d.distShadow.Color = Color3.new(0,0,0)
-			d.distShadow.Transparency = 0.5
-
-			item_drawings[item] = d
-		end
-
-		local pos, onScreen = CurrentCamera:WorldToViewportPoint(item.PickUpZone.Position)
-		if onScreen then
-			local x, y = pos.X, pos.Y
-			local half = IMAGE_SIZE / 2
-
-			d.shadowFrame.Position = UDim2.fromOffset(x+3,y+3)
-			d.imageFrame.Position = UDim2.fromOffset(x,y)
-
-			local nameY = y - half - 25
-
-			-- เงาฟ้าเข้ม (หลังสุด)
-			d.nameShadow2.Text = item.Name
-			d.nameShadow2.Position = Vector2.new(x+3, nameY+3)
-			d.nameShadow2.Visible = true
-
-			-- เงาฟ้าอ่อน
-			d.nameShadow.Text = item.Name
-			d.nameShadow.Position = Vector2.new(x+1.5, nameY+1.5)
-			d.nameShadow.Visible = true
-
-			-- ตัวหลัก
-			d.name.Text = item.Name
-			d.name.Position = Vector2.new(x, nameY)
-			d.name.Visible = true
-
-			local amountGui = item:FindFirstChild("AmountBillboardGui")
-			local txt = amountGui and amountGui:FindFirstChild("TextLabel")
-			local amount = txt and txt.Text or "?"
-
-			local distY = y + half + 10
-
-			d.distShadow.Text = "[ "..amount.." ]"
-			d.distShadow.Position = Vector2.new(x+2, distY+2)
-			d.distShadow.Visible = true
-
-			d.dist.Text = "[ "..amount.." ]"
-			d.dist.Position = Vector2.new(x, distY)
-			d.dist.Visible = true
-		end
-	end
-end)
 
 local MiscTab =
     Window:Tab(
