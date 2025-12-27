@@ -913,3 +913,68 @@ MainTab:Dropdown({
         _G.BlacklistRarity = selected
     end
 })
+
+-- =========================
+-- Snap / Sink
+-- =========================
+local SnapEnabled = false
+local snapHigh = 10 -- ความลึกเริ่มต้น
+local LocalPlayer = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- ฟังก์ชันจมลง
+local function SinkPlayer()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+
+    hum.PlatformStand = true
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+
+    task.spawn(function()
+        while SnapEnabled and hrp and hum and hum.Health > 0 do
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, -snapHigh, 0) -- ลงตรง ๆ
+            RunService.Heartbeat:Wait()
+        end
+
+        -- ปิด Toggle กลับขึ้น
+        if hrp and hum then
+            hum.PlatformStand = false
+            for _, part in pairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end)
+end
+
+-- Toggle Snap
+MainTab:Toggle({
+    Title = "Snap",
+    Flag = "snapToggle",
+    Desc = "Toggle to sink underground",
+    Value = false,
+    Callback = function(state)
+        SnapEnabled = state
+        if state then
+            SinkPlayer()
+        end
+    end
+})
+
+-- Slider Snap High
+MainTab:Slider({
+    Title = "Snap High",
+    Value = {Min = 1, Max = 50, Default = snapHigh},
+    Step = 1,
+    Callback = function(value)
+        snapHigh = value
+    end
+})
