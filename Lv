@@ -406,91 +406,69 @@ MainTab:Toggle({
 })
 
 -- =========================
--- Anti Kill Function
+-- Anti Kill / Auto Underground
 -- =========================
-local EverDown = false
-local WasAntiLockEnabled = false
-local Settings = { AntiDied = false }
+local Settings = { Antikill = false } -- ตัวแปรหลัก
 
-func = {}
+local UndergroundActive = false
+local OriginalPosition = nil
+local NoclipParts = {}
 
-func["AntiDied"] = function()
-    while task.wait(0.24) do
-        if Settings.AntiDied then
-            local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-            local Humanoid = Character:FindFirstChild("Humanoid")
-            local RootPart = Character:FindFirstChild("HumanoidRootPart")
-            local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-            local hum = CharModule.get_hum()
+local function enableNoclip()
+    local char = LocalPlayer.Character
+    if not char then return end
+    NoclipParts = {}
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            table.insert(NoclipParts, part)
+        end
+    end
+end
 
-            if hum then
-                if hum:GetAttribute("HasBeenDowned") and not hum:GetAttribute("IsDead") and Humanoid.Health > 0 then
-                    -- ปิด Anti Lock ชั่วคราว
-                    if _G.AntiLock then
-                        WasAntiLockEnabled = true
-                        _G.AntiLock = false
-                        stopDanceAntiAim()
-                        WindUI:Notify({
-                            Title = "Anti System",
-                            Content = "Anti Lock disabled (Anti Kill active)",
-                            Duration = 2
-                        })
-                    end
+local function disableNoclip()
+    for _, part in pairs(NoclipParts) do
+        if part and part.Parent then
+            part.CanCollide = true
+        end
+    end
+    NoclipParts = {}
+end
 
-                    -- ตรวจสอบ DeathScreen
-                    local deathScreenExists = PlayerGui:FindFirstChild("DeathScreen")
-                    if deathScreenExists and not PlayerGui.DeathScreen.DeathScreenHolder.Visible then
-                        local Radius = 15
-                        local targetY = RootPart.Position.Y - Radius
-                        local currentY = RootPart.Position.Y
-                        local deltaY = targetY - currentY
-                        local Gan = math.random(-5, 15)
+local function AutoUndergroundLoop()
+    while task.wait(0.2) do
+        if not Settings.Antikill then break end
+        local char = LocalPlayer.Character
+        if not char then continue end
+        local hum = char:FindFirstChild("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hum or not hrp then continue end
 
-                        RootPart.Anchored = false
-                        RootPart.CanCollide = false
-                        RootPart.CFrame = RootPart.CFrame * CFrame.new(Gan, deltaY, Gan)
-                        RootPart.Velocity = Vector3.new(RootPart.Velocity.X, -11, RootPart.Velocity.Z)
+        -- ถ้าเลือด ≤ 18 ลงใต้ดิน
+        if hum.Health <= 18 and not UndergroundActive then
+            UndergroundActive = true
+            OriginalPosition = hrp.Position
+            enableNoclip()
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, -50, 0)
+            WindUI:Notify({
+                Title = "Anti Kill",
+                Content = "Going underground + NoClip enabled",
+                Duration = 2
+            })
+        end
 
-                        for _, v in pairs(Character:GetChildren()) do
-                            if v:IsA("BasePart") then
-                                v.CanCollide = false
-                                v.Anchored = false
-                                v.CFrame = v.CFrame * CFrame.new(0, deltaY, 0)
-                                v.Velocity = Vector3.new(v.Velocity.X, -11, v.Velocity.Z)
-                            end
-                        end
-                        EverDown = true
-                    end
-                else
-                    if EverDown then
-                        local ganys = 15
-                        local targetY = RootPart.Position.Y - ganys
-                        local currentY = RootPart.Position.Y
-                        local deltaY = targetY - currentY
-                        RootPart.CFrame = RootPart.CFrame * CFrame.new(0, deltaY, 0)
-
-                        if not Client:GetAttribute("IsInCombat") then
-                            EverDown = false
-                            Net.send("request_respawn")
-
-                            -- เปิด Anti Lock กลับมา
-                            if WasAntiLockEnabled then
-                                _G.AntiLock = true
-                                playDanceAntiAim()
-                                WasAntiLockEnabled = false
-                                WindUI:Notify({
-                                    Title = "Anti System",
-                                    Content = "Anti Lock re-enabled",
-                                    Duration = 2
-                                })
-                            end
-                        end
-                    end
-                end
+        -- ถ้าเลือด ≥ 30 กลับขึ้น
+        if hum.Health >= 30 and UndergroundActive then
+            UndergroundActive = false
+            if OriginalPosition then
+                hrp.CFrame = CFrame.new(OriginalPosition)
             end
-        else
-            EverDown = false
-            WasAntiLockEnabled = false
+            disableNoclip()
+            WindUI:Notify({
+                Title = "Anti Kill",
+                Content = "Back to surface + NoClip disabled",
+                Duration = 2
+            })
         end
     end
 end
@@ -500,14 +478,13 @@ end
 -- =========================
 MainTab:Toggle({
     Title = "Anti Kill",
-    Desc = "Normal Player cant Finish",
     Flag = "antikill",
     Type = "Checkbox",
     Value = false,
     Callback = function(state)
-        Settings.AntiDied = state
+        Settings.Antikill = state
         if state then
-            task.spawn(func["AntiDied"])
+            task.spawn(AutoUndergroundLoop)
         end
     end
 })
