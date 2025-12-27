@@ -406,10 +406,9 @@ MainTab:Toggle({
 })
 
 -- =========================
--- Anti Kill / Auto Underground
+-- Anti Kill / Auto Underground + Random Warp
 -- =========================
-local Settings = { Antikill = false } -- ตัวแปรหลัก
-
+local Settings = { Antikill = false }
 local UndergroundActive = false
 local OriginalPosition = nil
 local NoclipParts = {}
@@ -444,7 +443,7 @@ local function AutoUndergroundLoop()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hum or not hrp then continue end
 
-        -- ถ้าเลือด ≤ 18 ลงใต้ดิน
+        -- ลงใต้ดินเมื่อเลือด ≤ 18
         if hum.Health <= 18 and not UndergroundActive then
             UndergroundActive = true
             OriginalPosition = hrp.Position
@@ -457,18 +456,29 @@ local function AutoUndergroundLoop()
             })
         end
 
-        -- ถ้าเลือด ≥ 30 กลับขึ้น
-        if hum.Health >= 30 and UndergroundActive then
-            UndergroundActive = false
-            if OriginalPosition then
-                hrp.CFrame = CFrame.new(OriginalPosition)
+        -- ถ้า underground อยู่
+        if UndergroundActive then
+            -- สุ่มวาร์ปหน้า/หลัง ±10 เมตร ทุก 0.5 วินาที
+            local offsetX = math.random(-10, 10)
+            local offsetZ = math.random(-10, 10)
+            hrp.CFrame = hrp.CFrame + Vector3.new(offsetX, 0, offsetZ)
+            
+            -- รอครึ่งวินาทีระหว่าง warp
+            task.wait(0.5)
+
+            -- กลับขึ้นถ้าเลือด ≥ 30
+            if hum.Health >= 30 then
+                UndergroundActive = false
+                if OriginalPosition then
+                    hrp.CFrame = CFrame.new(OriginalPosition)
+                end
+                disableNoclip()
+                WindUI:Notify({
+                    Title = "Anti Kill",
+                    Content = "Back to surface + NoClip disabled",
+                    Duration = 2
+                })
             end
-            disableNoclip()
-            WindUI:Notify({
-                Title = "Anti Kill",
-                Content = "Back to surface + NoClip disabled",
-                Duration = 2
-            })
         end
     end
 end
