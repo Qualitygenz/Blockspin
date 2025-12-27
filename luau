@@ -488,7 +488,6 @@ local DesyncButton = MainTab:Button({
         setfflag("NextGenReplicatorEnabledWrite4", "true")
 		        WindUI:Notify({
             Title = "Invisible Success",
-            Content = "Enjoy แม่มึงสิ",
             Duration = 3,
         })
     end,
