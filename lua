@@ -6,9 +6,7 @@ end
 if not (game.PlaceId == 104715542330896 or game.PlaceId == 97556409405464) then
     return
 end
--- ========================================
--- PART 1: Hook TransitionUI (หน้าจอ Loading)
--- ========================================
+
 pcall(
     function()
         local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
@@ -21,25 +19,23 @@ pcall(
     end
 )
 
--- ========================================
--- PART 2: Hook CharacterCreator (ตัวสร้างตัวละคร)
--- ========================================
+
 pcall(
     function()
         local CharCreator = require(RS.Modules.Game.CharacterCreator.CharacterCreator)
 
-        -- Hook start() - บล็อกตลอด
+        
         if CharCreator.start then
             local old_start = CharCreator.start
             CharCreator.start = function(...)
-                -- Loop รอแบบไม่มีที่สิ้นสุด
+                
                 while true do
                     task.wait(1)
                 end
             end
         end
 
-        -- Hook load_page() - โหลดหน้า character creation
+        
         if CharCreator.load_page then
             local old_load = CharCreator.load_page
             CharCreator.load_page = function(...)
@@ -47,7 +43,7 @@ pcall(
             end
         end
 
-        -- Hook initiate() - เริ่มต้น character creator
+        
         if CharCreator.initiate then
             local old_initiate = CharCreator.initiate
             CharCreator.initiate = function(...)
@@ -57,12 +53,10 @@ pcall(
     end
 )
 
--- ========================================
--- PART 3: Hook Character Spawn (สำรอง)
--- ========================================
+
 local VehiclesFolder = workspace:WaitForChild("Vehicles")
 
--- --- เก็บ Model ที่มี DriverSeat ---
+
 local protectedVehicles = {}
 
 local function updateVehicleList()
@@ -81,24 +75,24 @@ end
 updateVehicleList()
 
 
--- --- ฟังก์ชันตรวจว่าที่นั่งนี้อยู่ในยานที่ต้องป้องกันหรือไม่ ---
+
 local function isProtectedSeat(seat)
     local vehicle = seat:FindFirstAncestorOfClass("Model")
     return vehicle and protectedVehicles[vehicle] == true
 end
 
 
--- --- ลบที่นั่งที่ไม่ได้อยู่ในยานพาหนะที่มี DriverSeat ---
+
 local function removeSeatIfNotInProtectedVehicle(seat)
     if isProtectedSeat(seat) then
-        return -- ของรถจริง → ห้ามลบ
+        return 
     end
 
     seat:Destroy()
 end
 
 
--- --- ลบที่นั่งเดิมทั้งหมด (ยกเว้นของรถใน Vehicles) ---
+
 for _, seat in ipairs(workspace:GetDescendants()) do
     if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
         if not isProtectedSeat(seat) then
@@ -108,7 +102,7 @@ for _, seat in ipairs(workspace:GetDescendants()) do
 end
 
 
--- --- อัปเดต whitelist แบบ realtime ถ้ารถถูกเพิ่มเข้ามา ---
+
 VehiclesFolder.DescendantAdded:Connect(function(obj)
     if obj:IsA("VehicleSeat") and obj.Name == "DriverSeat" then
         updateVehicleList()
@@ -116,7 +110,7 @@ VehiclesFolder.DescendantAdded:Connect(function(obj)
 end)
 
 
--- --- ลบ seat ที่ถูกสร้างใหม่แบบ realtime ---
+
 workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
         if not isProtectedSeat(obj) then
@@ -131,9 +125,7 @@ end)
 
 game:GetService("ReplicatedStorage")
 
--- ========================================
--- วิธีที่ 3: Hook identifyexecutor ก่อนทุกอย่าง
--- ========================================
+
 if getgenv then
     getgenv().identifyexecutor = nil
 end
@@ -186,11 +178,9 @@ function v_u_1.is_connected(p11)
 	return p11:GetAttribute("IsConnected") and true or false
 end
 
--- ========================================
--- วิธีที่ 1: แทนที่ฟังก์ชัน v_u_19 ให้ข้ามการตรวจสอบ
--- ========================================
+
 local function v_u_19(p12, p13, p14, p15, ...)
-	-- ลบการตรวจสอบ executor ทั้งหมด
+	
 	return p12(p13, p14, p15, ...)
 end
 
@@ -199,9 +189,7 @@ task.wait(0.1)
 local v_u_20 = v_u_3.send
 local v_u_21 = v_u_3.send.FireServer
 
--- ========================================
--- วิธีที่ 2: แก้ไข Net.send โดยตรง
--- ========================================
+
 function v_u_1.send(p22, ...)
 	v_u_4.event = v_u_4.event + 1
 	-- เรียก FireServer โดยตรงไม่ผ่าน v_u_19
@@ -211,9 +199,7 @@ end
 local v_u_23 = v_u_3.get
 local v_u_24 = v_u_3.get.InvokeServer
 
--- ========================================
--- วิธีที่ 2: แก้ไข Net.get โดยตรง
--- ========================================
+
 function v_u_1.get(p25, ...)
 	v_u_4.func = v_u_4.func + 1
 	-- เรียก InvokeServer โดยตรงไม่ผ่าน v_u_19
@@ -416,9 +402,7 @@ if not LocalPlayer.Character then
 LocalPlayer.CharacterAdded:Wait()
 end
 
---====================================================
--- 🧍 MAIN TAB
---====================================================
+
 local MainTab =
     Window:Tab(
     {
@@ -427,7 +411,7 @@ local MainTab =
     }
 )
 
---== Money Reader ==--
+
 local Players = game:GetService("Players")
 local Client = Players.LocalPlayer
 local PlayerGui = Client:WaitForChild("PlayerGui")
@@ -469,9 +453,7 @@ task.spawn(
     end
 )
 
---====================================================
--- ⚙️ Player Modifier Section
---====================================================
+
 MainTab:Section(
     {
         Title = "Player Modifier:"
@@ -493,7 +475,7 @@ local DesyncButton = MainTab:Button({
     end,
 })
 
--- Player Tab: High Jump
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -532,7 +514,7 @@ if player.Character then
     setupCharacter(player.Character)
 end
 
--- High Jump Toggle
+
 MainTab:Toggle({
     Title = "High Jump",
     Default = false,
@@ -546,7 +528,7 @@ MainTab:Toggle({
     end
 })
 
--- High Jump Slider
+-- ปรับดโดสุง
 MainTab:Slider({
     Title = "High Jump Power",
     Value = {Min = 20, Max = maxJumpPower, Default = highJumpPower},
@@ -559,7 +541,7 @@ MainTab:Slider({
     end
 })
 
--- Walk Speed Toggle
+-- ปุ่มวิ่งไว
 MainTab:Toggle({
     Title = "Walk Speed",
     Default = false,
@@ -568,7 +550,7 @@ MainTab:Toggle({
     end
 })
 
--- Walk Speed Slider
+-- ปรับวิ่งวไ
 MainTab:Slider({
     Title = "Speed Multiplier",
     Value = {Min = 1, Max = 5, Default = walkSpeedMultiplier},
@@ -592,7 +574,7 @@ RunService.RenderStepped:Connect(function(delta)
     end
 end)
 
--- 🔹 ตัวแปรเก็บสถานะการเปิด Fly Jump
+
 local EnabledFlyJump = false
 
 MainTab:Toggle(
@@ -630,7 +612,7 @@ UserInputService.JumpRequest:Connect(
 )
 
 
--- Antiaim Script
+
 _G.AntiLock = false
 
 local Players = game:GetService("Players")
@@ -640,7 +622,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local CharModule = require(ReplicatedStorage.Modules.Core.Char)
 
--- Animation Anti-Aim
+
 local AntiAimAnimTrack = nil
 local ANIM_ID = "rbxassetid://104767795538635"
 
@@ -671,7 +653,7 @@ local function stopDanceAntiAim()
     end
 end
 
--- Velocity Desync + CustomPhysicalProperties
+
 local function VelocityDesync()
     local hrp = CharModule.get_hrp()
     if not hrp then return end
@@ -704,7 +686,7 @@ local function SetPhysics()
     end
 end
 
--- Loop ทำงานถ้าเปิด AntiLock
+
 RunService.Heartbeat:Connect(function()
     if _G.AntiLock then
         VelocityDesync()
@@ -712,7 +694,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- UI Toggle
+
 MainTab:Toggle({
     Title = "Anti Aim",
     Flag = "antilock",
@@ -730,7 +712,7 @@ MainTab:Toggle({
 })
 
 
--- Anti Ragdoll Function
+-- อันติแรคดอล
 local function AntiRagdollLoop()
     while _G.AntiRagdoll do
         task.wait(0.1)
@@ -750,7 +732,7 @@ local function AntiRagdollLoop()
     end
 end
 
--- Toggle UI
+
 MainTab:Toggle({
     Title = "Anti Ragdoll",
     Desc = "No ragdoll",
@@ -895,9 +877,7 @@ MainTab:Toggle({
 })
 
 
--- ==============================
--- Pickup Item (Toggle Version)
--- ==============================
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -911,7 +891,7 @@ local PICKUP_DISTANCE = 350
 local TOUCH_REPEAT = 25
 local pickupEnabled = false
 
--- Bind Character / HRP ใหม่ทุกครั้ง (กันตาย/รี)
+
 local function bindCharacter(char)
     Character = char
     HRP = char:WaitForChild("HumanoidRootPart", 5)
@@ -922,7 +902,7 @@ if LocalPlayer.Character then
 end
 LocalPlayer.CharacterAdded:Connect(bindCharacter)
 
--- Safe firetouch
+
 local function firetouch(partA, partB)
     if not firetouchinterest or not partA or not partB then return end
     for i = 1, TOUCH_REPEAT do
@@ -931,7 +911,7 @@ local function firetouch(partA, partB)
     end
 end
 
--- Main Loop
+-- ลูป
 RunService.RenderStepped:Connect(function()
     if not pickupEnabled then return end
     if not HRP or not HRP.Parent then return end
@@ -947,7 +927,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Toggle
+-- ดูดของ
 MainTab:Toggle({
     Title = "Pickup Item",
     Default = false,
@@ -960,7 +940,7 @@ MainTab:Toggle({
 
 local EnabledInfiniteStamina = false
 
--- สร้าง toggle บนเมนู
+
 MainTab:Toggle(
     {
         Title = "Infinite Stamina",
@@ -973,16 +953,16 @@ MainTab:Toggle(
     }
 )
 
--- เก็บฟังก์ชันเดิมของ SprintBar.update ไว้
+
 local OldUpdate = SprintBar.update
 
--- เขียนฟังก์ชันใหม่แทนที่
+
 SprintBar.update = function(...)
     if EnabledInfiniteStamina then
-        -- ถ้าเปิดโหมด Infinite Stamina ให้คืนค่าเต็ม (1)
+        
         return 0.9
     else
-        -- ถ้าปิด ให้ทำงานตามปกติ
+        
         return OldUpdate(...)
     end
 end
@@ -996,9 +976,7 @@ MainTab:Section(
 )
 
 
--- =========================
--- Snap Underground System
--- =========================
+
 local EnabledSnapRunning = false
 local SnapThread = nil
 local YoffsetValue = 70
@@ -1016,7 +994,7 @@ func["EnabledSnap"] = function()
     end
 end
 
--- 🔘 Toggle & Keybind Sync System
+
 local function SetSnapState(value)
     if EnabledSnapRunning == value then return end
     EnabledSnapRunning = value
@@ -1033,7 +1011,7 @@ local function SetSnapState(value)
     end
 end
 
--- 🧩 Toggle
+
 MainTab:Toggle({
     Title = "Snap",
     Value = false,
@@ -1043,7 +1021,7 @@ MainTab:Toggle({
     end
 })
 
--- 🎹 Keybind
+
 MainTab:Keybind({
     Title = "Snap Keybind",
     Flag = "snap_keybind",
@@ -1053,12 +1031,12 @@ MainTab:Keybind({
     end
 })
 
--- 📏 Slider Snap Height
+
 MainTab:Slider({
     Title = "Snap High",
     Flag = "snap_height",
     Step = 1,
-    Value = { Min = 1, Max = 100, Default = YoffsetValue },
+    Value = { Min = 1, Max = 50, Default = YoffsetValue },
     Callback = function(value)
         YoffsetValue = value
     end
@@ -1072,18 +1050,18 @@ local CombatTab =
     }
 )
 
-local SilentAimEnabled = true      -- เปิดตลอด
-local TracerEnabled   = true       -- เปิดตลอด
-local ShowFOV         = false       -- คุมด้วย UI
-local FOV             = 150        -- คุมด้วย Slider
+local SilentAimEnabled = true      
+local TracerEnabled   = true       
+local ShowFOV         = false      
+local FOV             = 150        
 
---// ================= GUN LIST (ลิสต์ล้วน) =================
+
 local GunNames = {
 	"P226","MP5","M24","Draco","Glock","Sawnoff","Uzi","G3","C9",
 	"Hunting Rifle","Anaconda","AK47","Remington","Double Barrel"
 }
 
---// ================= FOV CIRCLE =================
+
 local fovCircle = Drawing.new("Circle")
 fovCircle.Color = Color3.fromRGB(255,255,255)
 fovCircle.Thickness = 2
@@ -1092,13 +1070,13 @@ fovCircle.Filled = false
 fovCircle.Visible = ShowFOV
 fovCircle.Radius = FOV
 
---// ================= TRACER =================
+
 local tracerLine = Drawing.new("Line")
 tracerLine.Color = Color3.fromRGB(255,0,0)
 tracerLine.Thickness = 2
 tracerLine.Visible = false
 
---// ================= TARGET FINDER =================
+
 local function GetClosestTarget()
 	local closest, shortest = nil, math.huge
 	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
@@ -1123,7 +1101,7 @@ local function GetClosestTarget()
 	return closest
 end
 
---// ================= GUN CHECK =================
+
 local function IsHoldingAllowedGun(args)
 	-- เช็คจาก remote args ก่อน
 	local ok, weapon = pcall(function()
@@ -1135,7 +1113,7 @@ local function IsHoldingAllowedGun(args)
 		return true
 	end
 
-	-- เช็คจากตัวละคร
+	
 	if LocalPlayer.Character then
 		for _, v in pairs(LocalPlayer.Character:GetChildren()) do
 			if (v:IsA("Tool") or v:IsA("Model"))
@@ -1149,7 +1127,7 @@ local function IsHoldingAllowedGun(args)
 	return false
 end
 
---// ================= HOOK REMOTE =================
+
 local send = ReplicatedStorage.Remotes.Send
 local oldFire
 oldFire = hookfunction(send.FireServer, function(self, ...)
@@ -1174,7 +1152,7 @@ oldFire = hookfunction(send.FireServer, function(self, ...)
 	return oldFire(self, unpack(args))
 end)
 
---// ================= RENDER LOOP =================
+
 RunService.RenderStepped:Connect(function()
 	fovCircle.Position = Vector2.new(
 		Camera.ViewportSize.X/2,
@@ -1205,7 +1183,7 @@ RunService.RenderStepped:Connect(function()
 	tracerLine.Visible = false
 end)
 
---// ================= UI (เฉพาะ Show FOV + Slider) =================
+
 do
 	CombatTab:Toggle({
 		Title = "Show FOV",
@@ -1229,7 +1207,7 @@ do
 	})
 end
 
---// ===== Get Player Names =====
+
 local function GetPlayerNames()
 	local t = {}
 	for _, plr in pairs(Players:GetPlayers()) do
@@ -1240,19 +1218,19 @@ local function GetPlayerNames()
 	return t
 end
 
---// ===== Save Friend Dropdown (SilentAim Ignore) =====
+
 CombatTab:Dropdown({
 	Title = "Save Friend",
 	Values = GetPlayerNames(),
 	Multi = true,
 	Default = {},
 	Callback = function(selected)
-		-- reset ทุกคนก่อน
+		
 		for _, plr in pairs(Players:GetPlayers()) do
 			plr:SetAttribute("SilentAimIgnore", false)
 		end
 
-		-- ตั้งค่าเฉพาะชื่อที่เลือก
+		
 		for _, name in pairs(selected) do
 			local plr = Players:FindFirstChild(name)
 			if plr then
@@ -1271,9 +1249,7 @@ local EspTab =
 )
 
 
---====================================================
--- ESP PLAYER (SEPARATE TOGGLES)
---====================================================
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -1290,9 +1266,7 @@ local ESP_FOLDER = Instance.new("Folder")
 ESP_FOLDER.Name = "ESP_FOLDER"
 ESP_FOLDER.Parent = CoreGui
 
--- ======================
--- Health Color
--- ======================
+
 local function getHealthColor(hp)
     if hp >= 100 then
         return Color3.fromRGB(0,255,0)
@@ -1303,9 +1277,8 @@ local function getHealthColor(hp)
     end
 end
 
--- ======================
--- Create ESP
--- ======================
+--//อันนี้espอยู่บรรทัด1306 กูต้องจำ
+
 local function createESP(player)
     if player == LocalPlayer then return end
 
@@ -1315,7 +1288,7 @@ local function createESP(player)
         local head = char:WaitForChild("Head",5)
         if not hum or not root or not head then return end
 
-        -- Highlight
+        -- ไฮไลท
         local hl = Instance.new("Highlight")
         hl.Adornee = char
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -1324,7 +1297,7 @@ local function createESP(player)
         hl.Enabled = false
         hl.Parent = ESP_FOLDER
 
-        -- Name + HP
+        -- ชื่อกบัเบือห
         local nameGui = Instance.new("BillboardGui")
         nameGui.Adornee = head
         nameGui.Size = UDim2.new(0,200,0,45)
@@ -1350,7 +1323,7 @@ local function createESP(player)
         hpLabel.TextStrokeTransparency = 0
         hpLabel.Parent = nameGui
 
-        -- Distance
+        -- ระยะ
         local distGui = Instance.new("BillboardGui")
         distGui.Adornee = root
         distGui.Size = UDim2.new(0,200,0,20)
@@ -1367,7 +1340,7 @@ local function createESP(player)
         distLabel.TextColor3 = Color3.new(1,1,1)
         distLabel.Parent = distGui
 
-        -- Update Loop
+        -- สำหรับพวกแครกของกูสำเร็จ อันนี้ให้มันลูปเผื่อมึงไม่รู้
         RunService.RenderStepped:Connect(function()
             if not char.Parent or hum.Health <= 0 then
                 nameGui:Destroy()
@@ -1379,23 +1352,23 @@ local function createESP(player)
             local hp = math.floor(hum.Health)
             local color = getHealthColor(hp)
 
-            -- Name
+            -- ชื้อ
             nameLabel.Visible = ESP_Name
             nameLabel.TextColor3 = color
 
-            -- Health
+            -- เลือก
             hpLabel.Visible = ESP_Health
             hpLabel.Text = "HP: "..hp
             hpLabel.TextColor3 = color
 
-            -- Distance
+            -- ระยะ
             distGui.Enabled = ESP_Distance
             if ESP_Distance and LocalPlayer.Character then
                 local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
                 distLabel.Text = math.floor(dist).." m"
             end
 
-            -- Highlight
+            -- ไอไล
             hl.Enabled = ESP_Highlight
             hl.FillColor = color
             hl.OutlineColor = color
@@ -1413,9 +1386,7 @@ for _,plr in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(createESP)
 
---====================================================
--- UI TOGGLES
---====================================================
+
 EspTab:Toggle({
     Title = "ESP Name",
     Value = false,
@@ -1510,7 +1481,7 @@ EspTab:Toggle({
 									end
 									local Items = {}
 
-                                    -- เคลียร์ของเก่าก่อน
+                                    
 									for _, child in pairs(bg:GetChildren()) do
 										if child:IsA('Frame') then
 											child:Destroy()
@@ -1585,7 +1556,7 @@ EspTab:Toggle({
 				end)
 			end
 		else
-            -- ลบ GUI เมื่อปิด
+            
 			for _, v in pairs(Players:GetPlayers()) do
 				if v.Character and v.Character:FindFirstChild('HumanoidRootPart') then
 					local gui = v.Character.HumanoidRootPart:FindFirstChild('ItemBillboard')
@@ -1595,8 +1566,8 @@ EspTab:Toggle({
 				end
 			end
 		end
-	end  -- ปิด Callback function
-})  -- ปิด table ของ Toggle
+	end  
+})  
 
 local WeaponTab = Window:Tab({
     Title = "Weapon",
@@ -1607,7 +1578,7 @@ WeaponTab:Section({
     Title = "Gun Modification:"
 })
 
--- ตัวแปรเก็บค่า Settings (ตั้งค่า MAX ทั้งหมด)
+
 local GunModSettings = {
     Enabled = false,
     accuracy = math.huge,
@@ -1618,26 +1589,26 @@ local GunModSettings = {
     automatic = true
 }
 
--- เก็บชื่อ attribute ที่หาเจอ
+
 local FireRateAttributeName = "fire_rate"
 local AutomaticAttributeName = "automatic"
 
--- Label แสดงปืนปัจจุบัน
+
 local CurrentGunLabel = WeaponTab:Button({
     Title = "Current Gun",
     Desc = "None"
 })
 
--- ฟังก์ชันหาชื่อ fire_rate attribute (ลงท้ายด้วย 486)
+
 local function FindFireRateAttribute(gun)
     if not gun then return nil end
     
-    -- ลองชื่อปกติก่อน
+    
     if gun:GetAttribute("fire_rate") ~= nil then
         return "fire_rate"
     end
     
-    -- หาชื่อที่ลงท้ายด้วย 486
+    
     for attrName, attrValue in pairs(gun:GetAttributes()) do
         if type(attrName) == "string" and attrName:sub(-3) == "486" then
             return attrName
@@ -1647,16 +1618,16 @@ local function FindFireRateAttribute(gun)
     return nil
 end
 
--- ฟังก์ชันหาชื่อ automatic attribute (ลงท้ายด้วย 492)
+
 local function FindAutomaticAttribute(gun)
     if not gun then return nil end
     
-    -- ลองชื่อปกติก่อน
+    
     if gun:GetAttribute("automatic") ~= nil then
         return "automatic"
     end
     
-    -- หาชื่อที่ลงท้ายด้วย 492
+    
     for attrName, attrValue in pairs(gun:GetAttributes()) do
         if type(attrName) == "string" and attrName:sub(-3) == "492" then
             return attrName
@@ -1666,13 +1637,13 @@ local function FindAutomaticAttribute(gun)
     return nil
 end
 
--- ฟังก์ชันตรวจสอบว่าเป็นปืนหรือไม่
+
 local function IsGun(tool)
     if not tool or not tool:IsA("Tool") then return false end
     return tool:GetAttribute("reload_time") or tool:GetAttribute("AmmoType") or FindFireRateAttribute(tool)
 end
 
--- ฟังก์ชันแก้ไขปืน
+
 local function ModifyGunAttributes(gun)
     if not gun or not gun:IsA("Tool") then
         return false
@@ -1684,7 +1655,7 @@ local function ModifyGunAttributes(gun)
         gun:SetAttribute("Recoil", GunModSettings.Recoil)
         gun:SetAttribute("reload_time", GunModSettings.reload_time)
         
-        -- หาและตั้งค่า fire_rate
+        
         local fireRateAttr = FindFireRateAttribute(gun)
         if fireRateAttr then
             gun:SetAttribute(fireRateAttr, GunModSettings.fire_rate)
@@ -1693,7 +1664,7 @@ local function ModifyGunAttributes(gun)
             gun:SetAttribute("fire_rate", GunModSettings.fire_rate)
         end
         
-        -- หาและตั้งค่า automatic
+        
         local automaticAttr = FindAutomaticAttribute(gun)
         if automaticAttr then
             gun:SetAttribute(automaticAttr, GunModSettings.automatic)
@@ -1706,7 +1677,7 @@ local function ModifyGunAttributes(gun)
     return true
 end
 
--- ฟังก์ชัน Mod ปืนทั้งหมดใน Backpack
+
 local function ModAllGunsInBackpack()
     local count = 0
     for _, tool in pairs(Backpack:GetChildren()) do
@@ -1718,7 +1689,7 @@ local function ModAllGunsInBackpack()
     return count
 end
 
--- ฟังก์ชัน Mod ปืนที่ถืออยู่
+
 local function ModEquippedGun()
     local char = Client.Character
     if not char then return false end
@@ -1732,7 +1703,7 @@ local function ModEquippedGun()
     return false
 end
 
--- Realtime Monitor สำหรับ fire_rate
+
 local RealtimeConnections = {}
 
 local function StartRealtimeMonitor(gun)
@@ -1741,12 +1712,12 @@ local function StartRealtimeMonitor(gun)
     local fireRateAttr = FindFireRateAttribute(gun)
     if not fireRateAttr then return end
     
-    -- Monitor การเปลี่ยนแปลงของ fire_rate
+     
     local connection = gun:GetAttributeChangedSignal(fireRateAttr):Connect(function()
         if GunModSettings.Enabled then
             local currentValue = gun:GetAttribute(fireRateAttr)
             
-            -- ถ้าค่าไม่ใช่ math.huge หรือ infinity ให้ตั้งใหม่
+            
             if currentValue ~= math.huge and currentValue ~= GunModSettings.fire_rate then
                 gun:SetAttribute(fireRateAttr, GunModSettings.fire_rate)
             end
@@ -1770,13 +1741,13 @@ local function StopAllRealtimeMonitors()
     RealtimeConnections = {}
 end
 
--- ฟังก์ชัน Auto Mod Loop
+
 local BackpackConnection = nil
 local CharacterConnection = nil
 local RealtimeUpdateLoop = nil
 
 local function StartAutoMod()
-    -- หยุด connection เก่า
+    
     if BackpackConnection then
         BackpackConnection:Disconnect()
     end
@@ -1789,13 +1760,13 @@ local function StartAutoMod()
     
     StopAllRealtimeMonitors()
     
-    -- Mod ปืนทั้งหมดใน Backpack ทันที
+    
     local count = ModAllGunsInBackpack()
     
-    -- Mod ปืนที่ถืออยู่ถ้ามี
+    
     local equipped = ModEquippedGun()
     
-    -- เริ่ม realtime monitor สำหรับปืนทุกตัว
+    
     for _, tool in pairs(Backpack:GetChildren()) do
         if IsGun(tool) then
             StartRealtimeMonitor(tool)
@@ -1820,7 +1791,7 @@ local function StartAutoMod()
         CurrentGunLabel:SetDesc("No Gun Found")
     end
     
-    -- ฟัง Backpack เมื่อมีปืนเพิ่มเข้ามา
+    
     BackpackConnection = Backpack.ChildAdded:Connect(function(tool)
         if GunModSettings.Enabled and IsGun(tool) then
             task.wait(0.05)
@@ -1829,7 +1800,7 @@ local function StartAutoMod()
         end
     end)
     
-    -- ฟัง Character เมื่อจับปืน
+    
     local char = Client.Character
     if char then
         CharacterConnection = char.ChildAdded:Connect(function(tool)
@@ -1842,11 +1813,11 @@ local function StartAutoMod()
         end)
     end
     
-    -- Realtime update loop ทุก frame (0 วินาที)
+    
     RealtimeUpdateLoop = game:GetService("RunService").Heartbeat:Connect(function()
         if not GunModSettings.Enabled then return end
         
-        -- Update ปืนที่ถือ
+        
         local char = Client.Character
         if char then
             local tool = char:FindFirstChildOfClass("Tool")
@@ -1855,7 +1826,7 @@ local function StartAutoMod()
             end
         end
         
-        -- Update ทุกปืนใน Backpack
+        
         for _, tool in pairs(Backpack:GetChildren()) do
             if IsGun(tool) then
                 ModifyGunAttributes(tool)
@@ -1884,9 +1855,9 @@ local function StopAutoMod()
     CurrentGunLabel:SetDesc("None")
 end
 
--- ===== UI Controls (ปุ่มทั้งหมด) =====
+--//คอนโทรนกูต้องจำให้ได้​เวลากุมาแก้
 
--- Toggle เปิด/ปิด Gun Mod
+
 WeaponTab:Toggle({
     Title = "Enable Gun Mod",
     Flag = "gun_mod_enabled",
@@ -1916,12 +1887,10 @@ WeaponTab:Toggle({
 
 WeaponTab:Divider()
 
--- Toggle: Max Accuracy
+
 WeaponTab:Toggle({
-    Title = "INFINITE Accuracy",
+    Title = "Inf Accuracy",
     Flag = "gun_max_accuracy",
-    Icon = "crosshair",
-    Type = "Checkbox",
     Default = true,
     Callback = function(Value)
         GunModSettings.accuracy = Value and math.huge or 1
@@ -1933,12 +1902,10 @@ WeaponTab:Toggle({
     end
 })
 
--- Toggle: Max Range
+
 WeaponTab:Toggle({
-    Title = "INFINITE Range",
+    Title = "Inf Range",
     Flag = "gun_max_range",
-    Icon = "crosshair",
-    Type = "Checkbox",
     Default = true,
     Callback = function(Value)
         GunModSettings.range = Value and math.huge or 100
@@ -1950,12 +1917,10 @@ WeaponTab:Toggle({
     end
 })
 
--- Toggle: No Recoil
+
 WeaponTab:Toggle({
-    Title = "NO Recoil",
+    Title = "No Recoil",
     Flag = "gun_no_recoil",
-    Icon = "check",
-    Type = "Checkbox",
     Default = true,
     Callback = function(Value)
         GunModSettings.Recoil = Value and 0 or 1
@@ -1967,12 +1932,10 @@ WeaponTab:Toggle({
     end
 })
 
--- Toggle: Infinite Fire Rate
+
 WeaponTab:Toggle({
-    Title = "INFINITE Fire Rate",
+    Title = "Inf Fire Rate",
     Flag = "gun_infinite_firerate",
-    Icon = "zap",
-    Type = "Checkbox",
     Default = true,
     Callback = function(Value)
         GunModSettings.fire_rate = Value and math.huge or 0.1
@@ -1984,12 +1947,10 @@ WeaponTab:Toggle({
     end
 })
 
--- Toggle: Min Reload Time
+
 WeaponTab:Toggle({
-    Title = "MIN Reload Time",
+    Title = "Min Reload Time",
     Flag = "gun_min_reload",
-    Icon = "check",
-    Type = "Checkbox",
     Default = true,
     Callback = function(Value)
         GunModSettings.reload_time = Value and 0 or 2
@@ -2001,7 +1962,7 @@ WeaponTab:Toggle({
     end
 })
 
--- Toggle: Automatic
+
 WeaponTab:Toggle({
     Title = "Automatic Mode",
     Flag = "gun_automatic",
@@ -2028,7 +1989,7 @@ local CarTab =
     }
 )
 
--- Bump Aura Function
+-- Bump Aura 
 local function BumpAuraLoop()
     while _G.BumpAura do
         task.wait(0.1)
@@ -2038,12 +1999,12 @@ local function BumpAuraLoop()
             continue
         end
 
-        for _, target in CharModule.get_all() do  -- เปลี่ยนจาก Char เป็น CharModule
+        for _, target in CharModule.get_all() do  
             if target ~= Character then
                 local hrp = target:FindFirstChild("HumanoidRootPart")
                 if hrp and GetDistanceFromRootPart(hrp) < 100 then
                     
-                    -- เพิ่มแรงกระแทก
+                    
                     local Assembly = car.DriverSeat.AssemblyLinearVelocity 
                                      + Vector3.new(65, 65, 65)
 
@@ -2054,7 +2015,7 @@ local function BumpAuraLoop()
     end
 end
 
--- Toggle UI
+
 CarTab:Toggle({
     Title = "Bump Aura",
     Flag = "BumpAura",
@@ -2068,71 +2029,6 @@ CarTab:Toggle({
     end
 })
 
-local item_drawings = {}
-local RunService = game:GetService("RunService")
-local CurrentCamera = workspace.CurrentCamera
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-
--- Dropped Items ESP (Always ON)
-
-local ItemESPs = {}
-local ShowItemESP = true -- เปิดตลอดตั้งแต่รัน
-
-local BlueColor = Color3.fromRGB(0, 150, 255)
-local GreenColor = Color3.fromRGB(0, 255, 0)
-
-local function getItemColor(item)
-    if item.Name:lower():find("money") then
-        return GreenColor
-    else
-        return BlueColor
-    end
-end
-
-local function createItemESP(item)
-    if ItemESPs[item] then return end
-    local color = getItemColor(item)
-    local highlights = {}
-
-    -- Highlight
-    if item:IsA("BasePart") then
-        local hl = Instance.new("Highlight")
-        hl.Adornee = item
-        hl.FillColor = color
-        hl.OutlineColor = color
-        hl.FillTransparency = 0.7
-        hl.OutlineTransparency = 0
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.Enabled = true
-        hl.Parent = item
-        table.insert(highlights, hl)
-
-    elseif item:IsA("Model") then
-        for _, part in ipairs(item:GetDescendants()) do
-            if part:IsA("BasePart") then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = part
-                hl.FillColor = color
-                hl.OutlineColor = color
-                hl.FillTransparency = 0.7
-                hl.OutlineTransparency = 0
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.Enabled = true
-                hl.Parent = part
-                table.insert(highlights, hl)
-            end
-        end
-    end
-
-    ItemESPs[item] = {
-        highlights = highlights,
-        label = nil
-    }
-end
 
 local MiscTab =
     Window:Tab(
@@ -2152,26 +2048,24 @@ MiscTab:Toggle({
     Callback = function(Value)
         EnabledSkip = Value
 
-        -- ถ้าเปิดใช้งานทันที ให้ skip ทุก crate ที่กำลัง spin หรือจะ spin ใหม่
+        
         if EnabledSkip then
             task.spawn(function()
                 while EnabledSkip do
-                    -- ตรวจสอบทุก crate ที่มีอยู่
+                    
                     for _, crate in pairs(CrateController.class.objects) do
-                        -- ตั้งให้ skip 100%
-                        crate.states.open.set(true)       -- บังคับ crate เปิด
-                        CrateController.skipping.set(true) -- บังคับ skip
+                        
+                        crate.states.open.set(true)       
+                        CrateController.skipping.set(true) 
                     end
-                    task.wait(0.05) -- เช็คต่อเนื่อง
+                    task.wait(0.05) 
                 end
             end)
         end
     end
 })
 
--- =========================
--- Boost FPS (ภาพกาก)
--- =========================
+
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -2179,7 +2073,7 @@ local LocalPlayer = Players.LocalPlayer
 local Terrain = workspace:FindFirstChildOfClass("Terrain")
 
 local function Bootsfps()
-	-- ลบท้องฟ้า + เอฟเฟกต์
+	
 	for _, v in ipairs(Lighting:GetChildren()) do
 		if v:IsA("Sky")
 		or v:IsA("Atmosphere")
@@ -2191,14 +2085,14 @@ local function Bootsfps()
 		end
 	end
 
-	-- ปิดเงา / แสง
+	
 	Lighting.GlobalShadows = false
 	Lighting.Brightness = 0
 	Lighting.FogEnd = 9e9
 	Lighting.EnvironmentDiffuseScale = 0
 	Lighting.EnvironmentSpecularScale = 0
 
-	-- Terrain กาก
+	
 	if Terrain then
 		Terrain.WaterWaveSize = 0
 		Terrain.WaterWaveSpeed = 0
@@ -2206,7 +2100,7 @@ local function Bootsfps()
 		Terrain.WaterTransparency = 1
 	end
 
-	-- ทำทั้งแมพเป็นสีเทา / plastic
+	
 	for _, v in ipairs(workspace:GetDescendants()) do
 		if v:IsA("BasePart") then
 			v.Material = Enum.Material.Plastic
@@ -2225,9 +2119,7 @@ local function Bootsfps()
 	end
 end
 
--- =========================
--- Button ใน Tab Misc
--- =========================
+
 
 MiscTab:Button({
 	Title = "Bootsfps",
@@ -2237,9 +2129,7 @@ MiscTab:Button({
 	end
 })
 
--- =========================
--- RTX ON ULTRA (ภาพโคตรสวย)
--- =========================
+--//rtxon
 
 local Lighting = game:GetService("Lighting")
 local Terrain = workspace:FindFirstChildOfClass("Terrain")
@@ -2257,7 +2147,7 @@ local function RTX_ON()
 		end
 	end
 
-	-- ===== Sky =====
+	
 	local Sky = Instance.new("Sky")
 	Sky.SkyboxBk = "rbxassetid://159454299"
 	Sky.SkyboxDn = "rbxassetid://159454296"
@@ -2268,7 +2158,7 @@ local function RTX_ON()
 	Sky.SunAngularSize = 21
 	Sky.Parent = Lighting
 
-	-- ===== Lighting Core =====
+	
 	Lighting.Technology = Enum.Technology.Future
 	Lighting.GlobalShadows = true
 	Lighting.ShadowSoftness = 1
@@ -2278,7 +2168,7 @@ local function RTX_ON()
 	Lighting.EnvironmentSpecularScale = 1
 	Lighting.ClockTime = 14
 
-	-- ===== Atmosphere =====
+	
 	local Atmosphere = Instance.new("Atmosphere")
 	Atmosphere.Density = 0.35
 	Atmosphere.Offset = 0.25
@@ -2288,20 +2178,20 @@ local function RTX_ON()
 	Atmosphere.Haze = 1.2
 	Atmosphere.Parent = Lighting
 
-	-- ===== Bloom =====
+	
 	local Bloom = Instance.new("BloomEffect")
 	Bloom.Intensity = 1.2
 	Bloom.Size = 56
 	Bloom.Threshold = 0.85
 	Bloom.Parent = Lighting
 
-	-- ===== Sun Rays =====
+	
 	local SunRays = Instance.new("SunRaysEffect")
 	SunRays.Intensity = 0.25
 	SunRays.Spread = 0.85
 	SunRays.Parent = Lighting
 
-	-- ===== Color Correction =====
+	
 	local CC = Instance.new("ColorCorrectionEffect")
 	CC.Brightness = 0.05
 	CC.Contrast = 0.25
@@ -2309,7 +2199,7 @@ local function RTX_ON()
 	CC.TintColor = Color3.fromRGB(255, 245, 235)
 	CC.Parent = Lighting
 
-	-- ===== Depth Of Field =====
+	
 	local DOF = Instance.new("DepthOfFieldEffect")
 	DOF.FarIntensity = 0.25
 	DOF.NearIntensity = 0.05
@@ -2317,7 +2207,7 @@ local function RTX_ON()
 	DOF.InFocusRadius = 40
 	DOF.Parent = Lighting
 
-	-- ===== Terrain น้ำใส =====
+	
 	if Terrain then
 		Terrain.WaterWaveSize = 1
 		Terrain.WaterWaveSpeed = 15
@@ -2325,7 +2215,7 @@ local function RTX_ON()
 		Terrain.WaterTransparency = 0.05
 	end
 
-	-- ===== วัสดุเงาสวย =====
+	
 	for _, v in ipairs(workspace:GetDescendants()) do
 		if v:IsA("BasePart") then
 			v.CastShadow = true
@@ -2335,10 +2225,6 @@ local function RTX_ON()
 		end
 	end
 end
-
--- =========================
--- Button (Tab Misc)
--- =========================
 
 MiscTab:Button({
 	Title = "RTX ON",
@@ -2367,7 +2253,7 @@ local function GetJobID()
     return game.JobId or "Unknown"
 end
 
--- แสดง Server Code
+-- คัดลอกเลขเซิฟ
 local ServerCodeLabel =
     ServerTab:Code(
     {
@@ -2384,7 +2270,7 @@ ServerTab:Section(
     }
 )
 
--- ช่องกรอกโค้ด Server
+-- ที่มส่โค้ดเซิฟ
 local ServerCode = ""
 
 ServerTab:Input(
@@ -2397,7 +2283,7 @@ ServerTab:Input(
     }
 )
 
--- ปุ่ม Join Server ด้วยโค้ด
+-- ปุ่มใส่โค้ดเซิฟ
 ServerTab:Button(
     {
         Title = "Join Code",
@@ -2458,3 +2344,112 @@ ServerTab:Button(
     }
 )
 
+--==============================
+-- Dropped Items ESP (Auto Enable)
+--==============================
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local DroppedFolder = workspace:WaitForChild("DroppedItems")
+
+local ItemESPs = {}
+local ShowItemESP = true -- 🔥 เปิดทันที
+
+-- สี
+local BlueColor  = Color3.fromRGB(0,150,255)
+local GreenColor = Color3.fromRGB(0,255,0)
+
+local function getItemColor(item)
+    if item.Name:lower():find("money") then
+        return GreenColor
+    end
+    return BlueColor
+end
+
+-- สร้าง ESP ให้ของตก
+local function createItemESP(item)
+    if ItemESPs[item] then return end
+
+    local color = getItemColor(item)
+    local highlights = {}
+    local label
+
+    -- Highlight
+    local function addHighlight(part)
+        local hl = Instance.new("Highlight")
+        hl.Adornee = part
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.FillTransparency = 0.7
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Enabled = true
+        hl.Parent = part
+        table.insert(highlights, hl)
+    end
+
+    if item:IsA("BasePart") then
+        addHighlight(item)
+    elseif item:IsA("Model") then
+        for _, v in ipairs(item:GetDescendants()) do
+            if v:IsA("BasePart") then
+                addHighlight(v)
+            end
+        end
+    end
+
+    -- ชื่อของ (Billboard)
+    local basePart =
+        item:IsA("BasePart") and item
+        or item.PrimaryPart
+        or item:FindFirstChildWhichIsA("BasePart")
+
+    if basePart then
+        local bb = Instance.new("BillboardGui")
+        bb.Adornee = basePart
+        bb.Size = UDim2.new(0, 80, 0, 14)
+        bb.StudsOffset = Vector3.new(0, basePart.Size.Y/2 + 1, 0)
+        bb.AlwaysOnTop = true
+        bb.Parent = basePart
+
+        label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.Text = "[" .. item.Name .. "]"
+        label.Font = Enum.Font.GothamBold
+        label.TextScaled = true
+        label.TextColor3 = color
+        label.TextStrokeTransparency = 0.2
+        label.Visible = true
+        label.Parent = bb
+    end
+
+    ItemESPs[item] = {
+        highlights = highlights,
+        label = label
+    }
+end
+
+-- ลบ ESP
+local function removeItemESP(item)
+    local data = ItemESPs[item]
+    if not data then return end
+
+    for _, hl in ipairs(data.highlights) do
+        if hl then hl:Destroy() end
+    end
+
+    if data.label and data.label.Parent then
+        data.label.Parent:Destroy()
+    end
+
+    ItemESPs[item] = nil
+end
+
+-- Init (รันทันที)
+for _, item in ipairs(DroppedFolder:GetChildren()) do
+    createItemESP(item)
+end
+
+DroppedFolder.ChildAdded:Connect(createItemESP)
+DroppedFolder.ChildRemoved:Connect(removeItemESP)
