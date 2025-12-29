@@ -1,5 +1,4 @@
 if not game:IsLoaded() then
-if not game:IsLoaded() then
     repeat
         task.wait()
     until game:IsLoaded()
@@ -20,38 +19,27 @@ pcall(
             return result
         end
     end
-	)
+)
 
--
-pcall(function()
-    local RS = game:GetService("ReplicatedStorage")
-    local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
-
-    -
-    local old_transition = TransitionModule.transition
-    TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
-        -- 
-        return old_transition(p_in, p_wait, p_out, noLogo)
-    end
-end)
-
-
+-- ========================================
+-- PART 2: Hook CharacterCreator (ตัวสร้างตัวละคร)
+-- ========================================
 pcall(
     function()
         local CharCreator = require(RS.Modules.Game.CharacterCreator.CharacterCreator)
 
-        
+        -- Hook start() - บล็อกตลอด
         if CharCreator.start then
             local old_start = CharCreator.start
             CharCreator.start = function(...)
-                
+                -- Loop รอแบบไม่มีที่สิ้นสุด
                 while true do
                     task.wait(1)
                 end
             end
         end
 
-        
+        -- Hook load_page() - โหลดหน้า character creation
         if CharCreator.load_page then
             local old_load = CharCreator.load_page
             CharCreator.load_page = function(...)
@@ -59,7 +47,7 @@ pcall(
             end
         end
 
-        
+        -- Hook initiate() - เริ่มต้น character creator
         if CharCreator.initiate then
             local old_initiate = CharCreator.initiate
             CharCreator.initiate = function(...)
