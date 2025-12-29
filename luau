@@ -1874,15 +1874,15 @@ WeaponTab:Toggle({
         if Value then
             StartAutoMod()
             WindUI:Notify({
-                Title = "Gun Mod",
-                Content = "Enabled + Realtime Monitor",
+                Title = "Gun Mods",
+                Content = "Enabled",
                 Duration = 2
             })
         else
             StopAutoMod()
             WindUI:Notify({
-                Title = "Gun Mod",
-                Content = "Disabled",
+                Title = "Quality",
+                Content = "SuccessFully",
                 Duration = 2
             })
         end
@@ -2348,18 +2348,14 @@ ServerTab:Button(
     }
 )
 
---==============================
--- Dropped Items ESP (Auto Enable)
---==============================
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local DroppedFolder = workspace:WaitForChild("DroppedItems")
 
 local ItemESPs = {}
-local ShowItemESP = true -- 🔥 เปิดทันที
+local ShowItemESP = true
 
--- สี
+
 local BlueColor  = Color3.fromRGB(0,150,255)
 local GreenColor = Color3.fromRGB(0,255,0)
 
@@ -2370,7 +2366,7 @@ local function getItemColor(item)
     return BlueColor
 end
 
--- สร้าง ESP ให้ของตก
+
 local function createItemESP(item)
     if ItemESPs[item] then return end
 
@@ -2378,13 +2374,13 @@ local function createItemESP(item)
     local highlights = {}
     local label
 
-    -- Highlight
+    
     local function addHighlight(part)
         local hl = Instance.new("Highlight")
         hl.Adornee = part
         hl.FillColor = color
         hl.OutlineColor = color
-        hl.FillTransparency = 0.7
+        hl.FillTransparency = 0.8
         hl.OutlineTransparency = 0
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         hl.Enabled = true
@@ -2402,7 +2398,7 @@ local function createItemESP(item)
         end
     end
 
-    -- ชื่อของ (Billboard)
+    
     local basePart =
         item:IsA("BasePart") and item
         or item.PrimaryPart
@@ -2411,8 +2407,8 @@ local function createItemESP(item)
     if basePart then
         local bb = Instance.new("BillboardGui")
         bb.Adornee = basePart
-        bb.Size = UDim2.new(0, 80, 0, 14)
-        bb.StudsOffset = Vector3.new(0, basePart.Size.Y/2 + 1, 0)
+        bb.Size = UDim2.new(0, 55, 0, 9) 
+        bb.StudsOffset = Vector3.new(0, basePart.Size.Y/2 + 0.6, 0)
         bb.AlwaysOnTop = true
         bb.Parent = basePart
 
@@ -2421,9 +2417,10 @@ local function createItemESP(item)
         label.BackgroundTransparency = 1
         label.Text = "[" .. item.Name .. "]"
         label.Font = Enum.Font.GothamBold
-        label.TextScaled = true
+        label.TextScaled = false
+        label.TextSize = 8 -- 
         label.TextColor3 = color
-        label.TextStrokeTransparency = 0.2
+        label.TextStrokeTransparency = 0.5
         label.Visible = true
         label.Parent = bb
     end
@@ -2434,7 +2431,7 @@ local function createItemESP(item)
     }
 end
 
--- ลบ ESP
+-
 local function removeItemESP(item)
     local data = ItemESPs[item]
     if not data then return end
@@ -2450,7 +2447,7 @@ local function removeItemESP(item)
     ItemESPs[item] = nil
 end
 
--- Init (รันทันที)
+-
 for _, item in ipairs(DroppedFolder:GetChildren()) do
     createItemESP(item)
 end
