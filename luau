@@ -1,24 +1,26 @@
 if not game:IsLoaded() then
-repeat
-task.wait()
-until game:IsLoaded()
+if not game:IsLoaded() then
+    repeat
+        task.wait()
+    until game:IsLoaded()
 end
 if not (game.PlaceId == 104715542330896 or game.PlaceId == 97556409405464) then
-return
+    return
 end
-
+-- ========================================
+-- PART 1: Hook TransitionUI (หน้าจอ Loading)
+-- ========================================
 pcall(
-function()
-local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
+    function()
+        local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
 
--- Hook transition() - บังคับรอ 10 วิ  
-    local old_transition = TransitionModule.transition  
-    TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)  
-        return result  
-    end  
-end
-
-)
+        -- Hook transition() - บังคับรอ 10 วิ
+        local old_transition = TransitionModule.transition
+        TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
+            return result
+        end
+    end
+	)
 
 -
 pcall(function()
