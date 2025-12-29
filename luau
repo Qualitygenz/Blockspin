@@ -1,23 +1,22 @@
+-- รอเกม
 if not game:IsLoaded() then
     repeat
         task.wait()
     until game:IsLoaded()
 end
-if not (game.PlaceId == 104715542330896 or game.PlaceId == 97556409405464) then
-    return
-end
 
-pcall(
-    function()
-        local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
+-
+pcall(function()
+    local RS = game:GetService("ReplicatedStorage")
+    local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
 
-        -- Hook transition() - บังคับรอ 10 วิ
-        local old_transition = TransitionModule.transition
-        TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
-            return result
-        end
+    -
+    local old_transition = TransitionModule.transition
+    TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
+        -- 
+        return old_transition(p_in, p_wait, p_out, noLogo)
     end
-)
+end)
 
 
 pcall(
