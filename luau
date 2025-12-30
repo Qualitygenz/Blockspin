@@ -57,11 +57,12 @@ pcall(
     end
 )
 
-
-
+-- ========================================
+-- PART 3: Hook Character Spawn (สำรอง)
+-- ========================================
 local VehiclesFolder = workspace:WaitForChild("Vehicles")
 
-
+-- --- เก็บ Model ที่มี DriverSeat ---
 local protectedVehicles = {}
 
 local function updateVehicleList()
@@ -80,24 +81,24 @@ end
 updateVehicleList()
 
 
-
+-- --- ฟังก์ชันตรวจว่าที่นั่งนี้อยู่ในยานที่ต้องป้องกันหรือไม่ ---
 local function isProtectedSeat(seat)
     local vehicle = seat:FindFirstAncestorOfClass("Model")
     return vehicle and protectedVehicles[vehicle] == true
 end
 
 
-
+-- --- ลบที่นั่งที่ไม่ได้อยู่ในยานพาหนะที่มี DriverSeat ---
 local function removeSeatIfNotInProtectedVehicle(seat)
     if isProtectedSeat(seat) then
-        return 
+        return -- ของรถจริง → ห้ามลบ
     end
 
     seat:Destroy()
 end
 
 
-
+-- --- ลบที่นั่งเดิมทั้งหมด (ยกเว้นของรถใน Vehicles) ---
 for _, seat in ipairs(workspace:GetDescendants()) do
     if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
         if not isProtectedSeat(seat) then
@@ -107,7 +108,7 @@ for _, seat in ipairs(workspace:GetDescendants()) do
 end
 
 
-
+-- --- อัปเดต whitelist แบบ realtime ถ้ารถถูกเพิ่มเข้ามา ---
 VehiclesFolder.DescendantAdded:Connect(function(obj)
     if obj:IsA("VehicleSeat") and obj.Name == "DriverSeat" then
         updateVehicleList()
@@ -115,7 +116,7 @@ VehiclesFolder.DescendantAdded:Connect(function(obj)
 end)
 
 
-
+-- --- ลบ seat ที่ถูกสร้างใหม่แบบ realtime ---
 workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
         if not isProtectedSeat(obj) then
@@ -123,10 +124,6 @@ workspace.DescendantAdded:Connect(function(obj)
         end
     end
 end)
-
-
-
-
 
 game:GetService("ReplicatedStorage")
 
