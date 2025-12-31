@@ -1,43 +1,42 @@
-if not game:IsLoaded() then
-    repeat
-        task.wait()
-    until game:IsLoaded()
-end
-if not (game.PlaceId == 104715542330896 or game.PlaceId == 97556409405464) then
-    return
-end
--- ========================================
--- PART 1: Hook TransitionUI (หน้าจอ Loading)
--- ========================================
-pcall(
-    function()
-        local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
+-- 1. ประกาศตัวแปรหลักให้ครบ
+local RS = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
-        -- Hook transition() - บังคับรอ 10 วิ
-        local old_transition = TransitionModule.transition
-        TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
-            return result
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- 2. ตรวจสอบ ID (ลอง Print เช็คดูว่าผ่านไหม)
+if not (game.PlaceId == 104715542330896 or game.PlaceId == 97556409405464) then
+    print("PlaceId not match: " .. game.PlaceId)
+    -- return -- แนะนำให้คอมเมนต์ไว้ก่อนเพื่อเทสว่า UI ขึ้นไหม
+end
+
+-- 3. แก้ไข PART 1 (ใส่ตัวแปรให้ครบ)
+pcall(function()
+    local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
+    local old_transition = TransitionModule.transition
+    TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
+        -- ถ้าจะ Hook ต้องระวังเรื่องการ Return ค่าเดิม
+        return old_transition(p_in, p_wait, p_out, noLogo) 
+    end
+end)
+
+-- 4. แก้ไข PART 2 (ห้ามใส่ Infinite Loop ทิ้งไว้)
+pcall(function()
+    local CharCreator = require(RS.Modules.Game.CharacterCreator.CharacterCreator)
+    if CharCreator.start then
+        local old_start = CharCreator.start
+        CharCreator.start = function(...)
+            print("Character Creator Started")
+            -- ห้ามใส่ while true do task.wait() ตรงนี้ถ้าไม่จำเป็นจริงๆ
+            return -- หรือเรียก old_start(...)
         end
     end
-)
+end)
 
--- ========================================
--- PART 2: Hook CharacterCreator (ตัวสร้างตัวละคร)
--- ========================================
-pcall(
-    function()
-        local CharCreator = require(RS.Modules.Game.CharacterCreator.CharacterCreator)
+-- ส่วนที่เหลือของโค้ด (WindUI, ESP, ฯลฯ) จะทำงานได้ปกติหลังจากแก้ข้างบน
 
-        -- Hook start() - บล็อกตลอด
-        if CharCreator.start then
-            local old_start = CharCreator.start
-            CharCreator.start = function(...)
-                -- Loop รอแบบไม่มีที่สิ้นสุด
-                while true do
-                    task.wait(1)
-                end
-            end
-        end
 
         -- Hook load_page() - โหลดหน้า character creation
         if CharCreator.load_page then
