@@ -1,4 +1,6 @@
--- 1. ประกาศตัวแปรหลักให้ครบ
+-- ========================================
+-- PART 1: ประกาศตัวแปรหลักและตรวจสอบความพร้อม
+-- ========================================
 local RS = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
@@ -6,67 +8,59 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
--- 2. ตรวจสอบ ID (ลอง Print เช็คดูว่าผ่านไหม)
+-- ตรวจสอบ ID เกม
 if not (game.PlaceId == 104715542330896 or game.PlaceId == 97556409405464) then
     print("PlaceId not match: " .. game.PlaceId)
-    -- return -- แนะนำให้คอมเมนต์ไว้ก่อนเพื่อเทสว่า UI ขึ้นไหม
+    -- แนะนำให้คอมเมนต์ return ไว้ก่อนเพื่อเทส
 end
 
--- 3. แก้ไข PART 1 (ใส่ตัวแปรให้ครบ)
+-- ========================================
+-- PART 2: แก้ไขการ Hook Modules (จุดที่เคยรันไม่ขึ้น)
+-- ========================================
+-- Hook Transition
 pcall(function()
     local TransitionModule = require(RS.Modules.Game.UI.TransitionUI)
     local old_transition = TransitionModule.transition
     TransitionModule.transition = function(p_in, p_wait, p_out, noLogo)
-        -- ถ้าจะ Hook ต้องระวังเรื่องการ Return ค่าเดิม
         return old_transition(p_in, p_wait, p_out, noLogo) 
     end
 end)
 
--- 4. แก้ไข PART 2 (ห้ามใส่ Infinite Loop ทิ้งไว้)
+-- Hook Character Creator (แก้ไขจุดจบฟังก์ชันที่ผิด)
 pcall(function()
     local CharCreator = require(RS.Modules.Game.CharacterCreator.CharacterCreator)
+    
     if CharCreator.start then
         local old_start = CharCreator.start
         CharCreator.start = function(...)
             print("Character Creator Started")
-            -- ห้ามใส่ while true do task.wait() ตรงนี้ถ้าไม่จำเป็นจริงๆ
-            return -- หรือเรียก old_start(...)
+            return -- ปิดหน้าสร้างตัวละครทันที
         end
     end
-end)
 
--- ส่วนที่เหลือของโค้ด (WindUI, ESP, ฯลฯ) จะทำงานได้ปกติหลังจากแก้ข้างบน
-
-
-        -- Hook load_page() - โหลดหน้า character creation
-        if CharCreator.load_page then
-            local old_load = CharCreator.load_page
-            CharCreator.load_page = function(...)
-                return old_load(...)
-            end
-        end
-
-        -- Hook initiate() - เริ่มต้น character creator
-        if CharCreator.initiate then
-            local old_initiate = CharCreator.initiate
-            CharCreator.initiate = function(...)
-                return old_initiate(...)
-            end
+    if CharCreator.load_page then
+        local old_load = CharCreator.load_page
+        CharCreator.load_page = function(...)
+            return old_load(...)
         end
     end
-)
+
+    if CharCreator.initiate then
+        local old_initiate = CharCreator.initiate
+        CharCreator.initiate = function(...)
+            return old_initiate(...)
+        end
+    end
+end) -- ปิด pcall อย่างถูกต้อง
 
 -- ========================================
--- PART 3: Hook Character Spawn (สำรอง)
+-- PART 3: ระบบจัดการ Seat และป้องกันรถ (รันต่อได้ปกติ)
 -- ========================================
 local VehiclesFolder = workspace:WaitForChild("Vehicles")
-
--- --- เก็บ Model ที่มี DriverSeat ---
 local protectedVehicles = {}
 
 local function updateVehicleList()
     protectedVehicles = {}
-
     for _, model in ipairs(VehiclesFolder:GetDescendants()) do
         if model:IsA("VehicleSeat") and model.Name == "DriverSeat" then
             local vehicle = model:FindFirstAncestorOfClass("Model")
@@ -79,50 +73,31 @@ end
 
 updateVehicleList()
 
-
--- --- ฟังก์ชันตรวจว่าที่นั่งนี้อยู่ในยานที่ต้องป้องกันหรือไม่ ---
+-- ฟังก์ชันตรวจว่าที่นั่งนี้อยู่ในยานที่ต้องป้องกันหรือไม่
 local function isProtectedSeat(seat)
     local vehicle = seat:FindFirstAncestorOfClass("Model")
     return vehicle and protectedVehicles[vehicle] == true
 end
 
-
--- --- ลบที่นั่งที่ไม่ได้อยู่ในยานพาหนะที่มี DriverSeat ---
-local function removeSeatIfNotInProtectedVehicle(seat)
-    if isProtectedSeat(seat) then
-        return -- ของรถจริง → ห้ามลบ
-    end
-
-    seat:Destroy()
-end
-
-
--- --- ลบที่นั่งเดิมทั้งหมด (ยกเว้นของรถใน Vehicles) ---
+-- ลบที่นั่งเดิมทั้งหมด (ยกเว้นของรถใน Vehicles)
 for _, seat in ipairs(workspace:GetDescendants()) do
     if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
         if not isProtectedSeat(seat) then
-            removeSeatIfNotInProtectedVehicle(seat)
+            seat:Destroy()
         end
     end
 end
 
-
--- --- อัปเดต whitelist แบบ realtime ถ้ารถถูกเพิ่มเข้ามา ---
-VehiclesFolder.DescendantAdded:Connect(function(obj)
-    if obj:IsA("VehicleSeat") and obj.Name == "DriverSeat" then
-        updateVehicleList()
-    end
-end)
-
-
--- --- ลบ seat ที่ถูกสร้างใหม่แบบ realtime ---
+-- อัปเดต whitelist และลบ seat ใหม่แบบ Realtime
 workspace.DescendantAdded:Connect(function(obj)
     if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
+        task.wait(0.1) -- รอให้ Instance โหลดเสร็จ
         if not isProtectedSeat(obj) then
-            removeSeatIfNotInProtectedVehicle(obj)
+            obj:Destroy()
         end
     end
 end)
+
 
 game:GetService("ReplicatedStorage")
 
